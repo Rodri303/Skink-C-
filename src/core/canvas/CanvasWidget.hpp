@@ -1,9 +1,15 @@
 #pragma once
 
 #include "core/brush/BasicBrushEngine.hpp"
+#include "core/document/DrawingDocument.hpp"
+#include "core/history/HistoryManager.hpp"
+#include "core/stroke/StrokeEngine.hpp"
 
-#include <QImage>
+#include <QPointF>
+#include <QTransform>
 #include <QWidget>
+
+#include <optional>
 
 namespace Skink::Core::Canvas {
 
@@ -16,24 +22,38 @@ public:
     void setBrushSize(qreal size);
     void setBrushColor(const QColor& color);
     void clearCanvas();
+    void undo();
+    void redo();
+    void resetView();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
-    void resizeEvent(QResizeEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void tabletEvent(QTabletEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    void ensureImageSize();
-    void beginStroke(const QPointF& position, qreal pressure);
-    void continueStroke(const QPointF& position, qreal pressure);
+    [[nodiscard]] QTransform documentTransform() const;
+    [[nodiscard]] std::optional<QPointF> mapToDocument(const QPointF& viewportPosition) const;
+    [[nodiscard]] bool isInsideDocument(const QPointF& documentPosition) const;
+
+    void beginStroke(const QPointF& documentPosition, qreal pressure);
+    void continueStroke(const QPointF& documentPosition, qreal pressure);
     void endStroke();
 
-    QImage m_image;
+    Document::DrawingDocument m_document;
+    History::HistoryManager m_history{24};
+    Stroke::StrokeEngine m_stroke;
     Brush::BasicBrushEngine m_brush;
+
     bool m_drawing{false};
+    bool m_panning{false};
+    QPointF m_pan;
+    QPointF m_lastPanPosition;
+    qreal m_zoom{1.0};
 };
 
 } // namespace Skink::Core::Canvas

@@ -1,6 +1,7 @@
 #include "ui/topbar/TopBar.hpp"
 
 #include <QColorDialog>
+#include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>

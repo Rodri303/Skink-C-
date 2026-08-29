@@ -1,6 +1,7 @@
 #include "app/MainWindow.hpp"
 
 #include "core/canvas/CanvasWidget.hpp"
+#include "ui/workspace/WorkspaceWidget.hpp"
 
 #include <QColorDialog>
 #include <QComboBox>
@@ -9,12 +10,9 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
-#include <QResizeEvent>
 #include <QSlider>
 #include <QVBoxLayout>
 #include <QWidget>
-
-#include <algorithm>
 
 namespace Skink::App {
 
@@ -135,7 +133,6 @@ MainWindow::MainWindow(QWidget* parent)
 
     buildInterface();
     applyStyle();
-    positionWorkspaceOverlays();
 }
 
 void MainWindow::buildInterface()
@@ -152,14 +149,12 @@ void MainWindow::buildInterface()
     buildTopBar(topBar);
     layout->addWidget(topBar);
 
-    m_workspace = new QWidget(root);
-    m_workspace->setObjectName("workspace");
-    m_workspace->setMinimumHeight(500);
+    m_workspace = new Ui::Workspace::WorkspaceWidget(root);
     layout->addWidget(m_workspace, 1);
 
     m_canvas = new Core::Canvas::CanvasWidget(m_workspace);
     m_canvas->setObjectName("canvasShell");
-    m_canvas->setGeometry(m_workspace->rect());
+    m_workspace->setCanvas(m_canvas);
     m_canvas->show();
 
     buildWorkspaceOverlays(m_workspace);
@@ -332,11 +327,8 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     quickGrid->addWidget(makeQuickBrush(quickGridHost, "Aerógrafo", "≈≈≈≈≈≈", false), 1, 1);
     quickLayout->addWidget(quickGridHost, 1);
 
-    m_canvas->lower();
-    m_toolStrip->raise();
-    m_leftControls->raise();
-    m_layersPanel->raise();
-    m_quickBrushPanel->raise();
+    m_workspace->setLeftOverlays(m_toolStrip, m_leftControls);
+    m_workspace->setRightOverlays(m_layersPanel, m_quickBrushPanel);
 }
 
 void MainWindow::buildBottomBar(QWidget* parent)
@@ -394,33 +386,6 @@ void MainWindow::buildBottomBar(QWidget* parent)
     layout->addWidget(makeButton(parent, QStringLiteral("⌄"), "squareBottomButton"));
 
     connect(center, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->resetView(); });
-}
-
-void MainWindow::resizeEvent(QResizeEvent* event)
-{
-    QMainWindow::resizeEvent(event);
-    positionWorkspaceOverlays();
-}
-
-void MainWindow::positionWorkspaceOverlays()
-{
-    if (!m_workspace) return;
-
-    if (m_canvas) m_canvas->setGeometry(m_workspace->rect());
-    if (m_toolStrip) m_toolStrip->move(20, 66);
-    if (m_leftControls) m_leftControls->move(20, 294);
-
-    if (m_layersPanel) {
-        m_layersPanel->move(std::max(10, m_workspace->width() - m_layersPanel->width() - 20), 30);
-    }
-
-    if (m_quickBrushPanel) {
-        const int desiredTop = 485;
-        const int safeTop = std::max(30, m_workspace->height() - m_quickBrushPanel->height() - 20);
-        m_quickBrushPanel->move(
-            std::max(10, m_workspace->width() - m_quickBrushPanel->width() - 20),
-            std::min(desiredTop, safeTop));
-    }
 }
 
 void MainWindow::applyStyle()

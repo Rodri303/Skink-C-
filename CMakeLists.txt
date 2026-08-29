@@ -32,6 +32,8 @@ qt_add_executable(Skink
     src/ui/panels/DraggablePanel.hpp
     src/ui/widgets/ToolButton.cpp
     src/ui/widgets/ToolButton.hpp
+    src/ui/workspace/WorkspaceWidget.cpp
+    src/ui/workspace/WorkspaceWidget.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

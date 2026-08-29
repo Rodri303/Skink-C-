@@ -1,6 +1,7 @@
 #include "core/canvas/CanvasWidget.hpp"
 
 #include <QKeyEvent>
+#include <QKeySequence>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QTabletEvent>
@@ -36,10 +37,7 @@ void CanvasWidget::setBrushSize(qreal size)
 
 void CanvasWidget::setBrushColor(const QColor& color)
 {
-    if (!color.isValid()) {
-        return;
-    }
-
+    if (!color.isValid()) return;
     auto settings = m_brush.settings();
     settings.color = color;
     m_brush.setSettings(settings);
@@ -83,6 +81,7 @@ void CanvasWidget::paintEvent(QPaintEvent*)
     painter.fillRect(rect(), QColor("#2a2a2a"));
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter.setTransform(documentTransform());
+    painter.fillRect(QRectF(QPointF(0.0, 0.0), m_document.size()), QColor("#f2f0e9"));
     painter.drawImage(QPointF(0.0, 0.0), m_document.image());
 }
 
@@ -100,8 +99,8 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
 
     if (event->button() == Qt::LeftButton) {
         const auto documentPosition = mapToDocument(event->position());
-        if (documentPosition.has_value() && isInsideDocument(*documentPosition)) {
-            beginStroke(*documentPosition, 1.0);
+        if (documentPosition && isInsideDocument(*documentPosition)) {
+            beginStroke({*documentPosition, 1.0, 0.0, 0.0, 0.0, 0.0, event->timestamp()});
             event->accept();
             return;
         }
@@ -123,8 +122,8 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 
     if (m_drawing && (event->buttons() & Qt::LeftButton)) {
         const auto documentPosition = mapToDocument(event->position());
-        if (documentPosition.has_value()) {
-            continueStroke(*documentPosition, 1.0);
+        if (documentPosition) {
+            continueStroke({*documentPosition, 1.0, 0.0, 0.0, 0.0, 0.0, event->timestamp()});
             event->accept();
             return;
         }
@@ -144,8 +143,8 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
 
     if (event->button() == Qt::LeftButton && m_drawing) {
         const auto documentPosition = mapToDocument(event->position());
-        if (documentPosition.has_value()) {
-            continueStroke(*documentPosition, 1.0);
+        if (documentPosition) {
+            continueStroke({*documentPosition, 1.0, 0.0, 0.0, 0.0, 0.0, event->timestamp()});
         }
         endStroke();
         event->accept();
@@ -158,24 +157,23 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
 void CanvasWidget::tabletEvent(QTabletEvent* event)
 {
     setFocus(Qt::OtherFocusReason);
-    const qreal pressure = std::clamp<qreal>(event->pressure(), 0.0, 1.0);
     const auto documentPosition = mapToDocument(event->position());
 
     switch (event->type()) {
     case QEvent::TabletPress:
-        if (documentPosition.has_value() && isInsideDocument(*documentPosition)) {
-            beginStroke(*documentPosition, pressure);
+        if (documentPosition && isInsideDocument(*documentPosition)) {
+            beginStroke(tabletSample(*event, *documentPosition));
         }
         break;
     case QEvent::TabletMove:
-        if (m_drawing && documentPosition.has_value()) {
-            continueStroke(*documentPosition, pressure);
+        if (m_drawing && documentPosition) {
+            continueStroke(tabletSample(*event, *documentPosition));
         }
         break;
     case QEvent::TabletRelease:
         if (m_drawing) {
-            if (documentPosition.has_value()) {
-                continueStroke(*documentPosition, pressure);
+            if (documentPosition && event->pressure() > 0.0) {
+                continueStroke(tabletSample(*event, *documentPosition));
             }
             endStroke();
         }
@@ -190,7 +188,7 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
 void CanvasWidget::wheelEvent(QWheelEvent* event)
 {
     const auto anchorDocument = mapToDocument(event->position());
-    if (!anchorDocument.has_value()) {
+    if (!anchorDocument) {
         QWidget::wheelEvent(event);
         return;
     }
@@ -216,19 +214,16 @@ void CanvasWidget::keyPressEvent(QKeyEvent* event)
         event->accept();
         return;
     }
-
     if (event->matches(QKeySequence::Redo)) {
         redo();
         event->accept();
         return;
     }
-
     if (event->key() == Qt::Key_0) {
         resetView();
         event->accept();
         return;
     }
-
     QWidget::keyPressEvent(event);
 }
 
@@ -245,10 +240,7 @@ std::optional<QPointF> CanvasWidget::mapToDocument(const QPointF& viewportPositi
 {
     bool invertible = false;
     const QTransform inverse = documentTransform().inverted(&invertible);
-    if (!invertible) {
-        return std::nullopt;
-    }
-
+    if (!invertible) return std::nullopt;
     return inverse.map(viewportPosition);
 }
 
@@ -260,29 +252,42 @@ bool CanvasWidget::isInsideDocument(const QPointF& documentPosition) const
         && documentPosition.y() < m_document.size().height();
 }
 
-void CanvasWidget::beginStroke(const QPointF& documentPosition, qreal pressure)
+Brush::BrushSample CanvasWidget::tabletSample(
+    const QTabletEvent& event,
+    const QPointF& documentPosition) const
+{
+    return {
+        documentPosition,
+        std::clamp<qreal>(event.pressure(), 0.0, 1.0),
+        static_cast<qreal>(event.xTilt()),
+        static_cast<qreal>(event.yTilt()),
+        event.rotation(),
+        event.tangentialPressure(),
+        event.timestamp()
+    };
+}
+
+void CanvasWidget::beginStroke(const Brush::BrushSample& sample)
 {
     m_drawing = true;
-    const Brush::BrushSample sample{documentPosition, pressure};
     m_stroke.beginStroke(sample);
     m_brush.beginStroke(sample);
 
     QPainter painter(&m_document.image());
-    m_brush.continueStroke(painter, {documentPosition + QPointF(0.01, 0.01), pressure});
+    Brush::BrushSample dotSample = sample;
+    dotSample.position += QPointF(0.01, 0.01);
+    m_brush.continueStroke(painter, dotSample);
     update();
 }
 
-void CanvasWidget::continueStroke(const QPointF& documentPosition, qreal pressure)
+void CanvasWidget::continueStroke(const Brush::BrushSample& sample)
 {
-    if (!m_drawing) {
-        return;
-    }
+    if (!m_drawing) return;
 
     QPainter painter(&m_document.image());
-    const Brush::BrushSample rawSample{documentPosition, pressure};
-    const auto samples = m_stroke.processSample(rawSample, m_brush.settings().size);
-    for (const auto& sample : samples) {
-        m_brush.continueStroke(painter, sample);
+    const auto samples = m_stroke.processSample(sample, m_brush.settings().size);
+    for (const auto& processedSample : samples) {
+        m_brush.continueStroke(painter, processedSample);
     }
     update();
 }

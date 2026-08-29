@@ -1,160 +1,726 @@
 #include "app/MainWindow.hpp"
 
 #include "core/canvas/CanvasWidget.hpp"
-#include "ui/panels/DraggablePanel.hpp"
-#include "ui/widgets/ToolButton.hpp"
 
 #include <QColorDialog>
 #include <QComboBox>
+#include <QFrame>
+#include <QGridLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QSlider>
-#include <QSpinBox>
 #include <QVBoxLayout>
 #include <QWidget>
 
+#include <algorithm>
+
 namespace Skink::App {
 
-using Skink::Ui::Panels::DraggablePanel;
-using Skink::Ui::Widgets::ToolButton;
+namespace {
+
+QPushButton* makeButton(QWidget* parent, const QString& text, const char* objectName)
+{
+    auto* button = new QPushButton(text, parent);
+    button->setObjectName(objectName);
+    button->setCursor(Qt::PointingHandCursor);
+    return button;
+}
+
+QLabel* makeLabel(QWidget* parent, const QString& text, const char* objectName = nullptr)
+{
+    auto* label = new QLabel(text, parent);
+    if (objectName) label->setObjectName(objectName);
+    return label;
+}
+
+QWidget* makeControlBlock(
+    QWidget* parent,
+    const QString& title,
+    const QString& subtitle,
+    const QString& initialOutput,
+    QSlider** sliderOut,
+    int minimum,
+    int maximum,
+    int value)
+{
+    auto* block = new QWidget(parent);
+    block->setObjectName("controlBlock");
+    auto* row = new QHBoxLayout(block);
+    row->setContentsMargins(0, 0, 0, 0);
+    row->setSpacing(16);
+
+    auto* sliderFrame = new QFrame(block);
+    sliderFrame->setObjectName("sliderColumn");
+    sliderFrame->setFixedSize(50, 120);
+    auto* sliderLayout = new QVBoxLayout(sliderFrame);
+    sliderLayout->setContentsMargins(14, 10, 14, 10);
+
+    auto* slider = new QSlider(Qt::Vertical, sliderFrame);
+    slider->setRange(minimum, maximum);
+    slider->setValue(value);
+    sliderLayout->addWidget(slider, 1, Qt::AlignCenter);
+
+    auto* copy = new QWidget(block);
+    copy->setObjectName("controlCopy");
+    auto* copyLayout = new QVBoxLayout(copy);
+    copyLayout->setContentsMargins(0, 12, 0, 0);
+    copyLayout->setSpacing(4);
+
+    auto* titleLabel = makeLabel(copy, title, "controlTitle");
+    auto* subLabel = makeLabel(copy, subtitle, "controlSubtitle");
+    subLabel->setWordWrap(true);
+    auto* output = makeLabel(copy, initialOutput, "controlOutput");
+
+    copyLayout->addWidget(titleLabel);
+    copyLayout->addWidget(subLabel);
+    copyLayout->addWidget(output);
+    copyLayout->addStretch(1);
+
+    row->addWidget(sliderFrame);
+    row->addWidget(copy, 1);
+
+    if (sliderOut) *sliderOut = slider;
+    return block;
+}
+
+QWidget* makeLayerRow(QWidget* parent, const QString& name, const QString& meta, bool selected)
+{
+    auto* row = new QWidget(parent);
+    row->setObjectName(selected ? "layerSelected" : "layerRow");
+    row->setFixedHeight(58);
+
+    auto* layout = new QHBoxLayout(row);
+    layout->setContentsMargins(10, 5, 10, 5);
+    layout->setSpacing(8);
+
+    auto* eye = makeButton(row, QStringLiteral("◉"), "layerIconButton");
+    eye->setFixedWidth(24);
+
+    auto* thumb = new QFrame(row);
+    thumb->setObjectName(selected ? "layerThumbDark" : "layerThumb");
+    thumb->setFixedSize(44, 44);
+
+    auto* nameLabel = makeLabel(row, name, "layerName");
+    auto* metaLabel = makeLabel(row, meta, "layerMeta");
+    auto* dots = makeButton(row, QStringLiteral("⋮"), "layerIconButton");
+    dots->setFixedWidth(20);
+
+    layout->addWidget(eye);
+    layout->addWidget(thumb);
+    layout->addWidget(nameLabel, 1);
+    layout->addWidget(metaLabel);
+    layout->addWidget(dots);
+    return row;
+}
+
+QPushButton* makeQuickBrush(QWidget* parent, const QString& name, const QString& preview, bool selected)
+{
+    auto* button = makeButton(parent, name + QStringLiteral("\n\n") + preview, selected ? "quickCardSelected" : "quickCard");
+    button->setMinimumHeight(86);
+    button->setCheckable(true);
+    button->setChecked(selected);
+    return button;
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    setWindowTitle("Skink — C++ Foundation 0.1");
+    setWindowTitle("Skink — SW!NK Native C++");
     resize(1440, 900);
-    setMinimumSize(900, 600);
+    setMinimumSize(1100, 700);
 
     buildInterface();
     applyStyle();
+    positionWorkspaceOverlays();
 }
 
 void MainWindow::buildInterface()
 {
-    auto* workspace = new QWidget(this);
-    workspace->setObjectName("workspace");
-    setCentralWidget(workspace);
+    auto* root = new QWidget(this);
+    root->setObjectName("appRoot");
+    auto* layout = new QVBoxLayout(root);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
 
-    m_canvas = new Core::Canvas::CanvasWidget(workspace);
-    m_canvas->setGeometry(245, 70, 950, 760);
+    auto* topBar = new QWidget(root);
+    topBar->setObjectName("topBar");
+    topBar->setFixedHeight(62);
+    buildTopBar(topBar);
+    layout->addWidget(topBar);
 
-    buildPanels(workspace);
+    m_workspace = new QWidget(root);
+    m_workspace->setObjectName("workspace");
+    m_workspace->setMinimumHeight(500);
+    layout->addWidget(m_workspace, 1);
+
+    m_canvas = new Core::Canvas::CanvasWidget(m_workspace);
+    m_canvas->setObjectName("canvasShell");
+    m_canvas->setGeometry(m_workspace->rect());
+    m_canvas->show();
+
+    buildWorkspaceOverlays(m_workspace);
+
+    auto* bottomBar = new QWidget(root);
+    bottomBar->setObjectName("bottomBar");
+    bottomBar->setFixedHeight(72);
+    buildBottomBar(bottomBar);
+    layout->addWidget(bottomBar);
+
+    setCentralWidget(root);
 }
 
-void MainWindow::buildPanels(QWidget* workspace)
+void MainWindow::buildTopBar(QWidget* parent)
 {
-    auto* tools = new DraggablePanel("TOOLS", workspace);
-    tools->setGeometry(18, 70, 200, 250);
-    const QStringList toolNames{"Brush", "Eraser", "Select", "Line", "Rect", "Hand", "Zoom"};
-    for (const auto& name : toolNames) {
-        tools->contentLayout()->addWidget(new ToolButton(name, tools));
+    auto* grid = new QGridLayout(parent);
+    grid->setContentsMargins(30, 0, 30, 0);
+    grid->setHorizontalSpacing(10);
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 0);
+    grid->setColumnStretch(2, 1);
+
+    auto* left = new QWidget(parent);
+    auto* leftLayout = new QHBoxLayout(left);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(10);
+
+    auto* wordmark = makeLabel(left, "SW!NK", "wordmark");
+    auto* file = makeButton(left, "Archivo", "topTextButton");
+    auto* settings = makeButton(left, "Ajustes", "topTextButton");
+    auto* divider = new QFrame(left);
+    divider->setObjectName("topDivider");
+    divider->setFixedSize(1, 30);
+    auto* undo = makeButton(left, QStringLiteral("↶"), "topIconButton");
+    auto* redo = makeButton(left, QStringLiteral("↷"), "topIconButton");
+    undo->setToolTip("Deshacer");
+    redo->setToolTip("Rehacer");
+
+    leftLayout->addWidget(wordmark);
+    leftLayout->addSpacing(14);
+    leftLayout->addWidget(file);
+    leftLayout->addWidget(settings);
+    leftLayout->addSpacing(8);
+    leftLayout->addWidget(divider);
+    leftLayout->addWidget(undo);
+    leftLayout->addWidget(redo);
+    leftLayout->addStretch(1);
+
+    auto* center = new QWidget(parent);
+    auto* centerLayout = new QHBoxLayout(center);
+    centerLayout->setContentsMargins(0, 0, 0, 0);
+    centerLayout->setSpacing(10);
+    centerLayout->addWidget(makeLabel(center, "SW!NK · Native C++", "appTitle"));
+    centerLayout->addWidget(makeLabel(center, "Lápiz: Qt nativo", "penStatus"));
+
+    auto* right = new QWidget(parent);
+    auto* rightLayout = new QHBoxLayout(right);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(6);
+    rightLayout->addStretch(1);
+
+    auto* brush = makeButton(right, QStringLiteral("╱"), "paintToolActive");
+    brush->setToolTip("Pincel");
+    auto* eraser = makeButton(right, QStringLiteral("▱"), "paintTool");
+    eraser->setToolTip("Borrador");
+    auto* layers = makeButton(right, QStringLiteral("◇"), "paintTool");
+    layers->setToolTip("Capas");
+    auto* color = makeButton(right, QStringLiteral("●"), "colorTool");
+    color->setToolTip("Color");
+
+    for (auto* button : {brush, eraser, layers, color}) button->setFixedSize(52, 52);
+
+    rightLayout->addWidget(brush);
+    rightLayout->addWidget(eraser);
+    rightLayout->addWidget(layers);
+    rightLayout->addWidget(color);
+
+    grid->addWidget(left, 0, 0);
+    grid->addWidget(center, 0, 1, Qt::AlignCenter);
+    grid->addWidget(right, 0, 2);
+
+    connect(undo, &QPushButton::clicked, m_canvas, [this] { if (m_canvas) m_canvas->undo(); });
+    connect(redo, &QPushButton::clicked, m_canvas, [this] { if (m_canvas) m_canvas->redo(); });
+    connect(color, &QPushButton::clicked, this, [this] {
+        const QColor selected = QColorDialog::getColor(QColor("#151515"), this, "Color del pincel");
+        if (selected.isValid() && m_canvas) m_canvas->setBrushColor(selected);
+    });
+}
+
+void MainWindow::buildWorkspaceOverlays(QWidget* parent)
+{
+    m_toolStrip = new QFrame(parent);
+    m_toolStrip->setObjectName("toolStrip");
+    m_toolStrip->setFixedSize(50, 198);
+    auto* stripLayout = new QVBoxLayout(m_toolStrip);
+    stripLayout->setContentsMargins(6, 7, 6, 7);
+    stripLayout->setSpacing(5);
+
+    const QStringList stripIcons{QStringLiteral("➤"), QStringLiteral("□"), QStringLiteral("✋"), QStringLiteral("⤢")};
+    for (int index = 0; index < stripIcons.size(); ++index) {
+        auto* button = makeButton(m_toolStrip, stripIcons[index], index == 0 ? "stripButtonActive" : "stripButton");
+        button->setFixedSize(38, 40);
+        stripLayout->addWidget(button);
     }
 
-    auto* brush = new DraggablePanel("BRUSH", workspace);
-    brush->setGeometry(18, 340, 200, 190);
-    auto* sizeLabel = new QLabel("Size", brush);
-    auto* size = new QSlider(Qt::Horizontal, brush);
-    size->setRange(1, 160);
-    size->setValue(18);
-    brush->contentLayout()->addWidget(sizeLabel);
-    brush->contentLayout()->addWidget(size);
-    connect(size, &QSlider::valueChanged, m_canvas, [this](int value) {
-        m_canvas->setBrushSize(value);
+    m_leftControls = new QWidget(parent);
+    m_leftControls->setObjectName("leftControls");
+    m_leftControls->setFixedSize(220, 432);
+    auto* controlsLayout = new QVBoxLayout(m_leftControls);
+    controlsLayout->setContentsMargins(0, 0, 0, 0);
+    controlsLayout->setSpacing(18);
+
+    QSlider* sizeSlider = nullptr;
+    controlsLayout->addWidget(makeControlBlock(m_leftControls, "TAMAÑO", "del pincel", "14 px", &sizeSlider, 1, 160, 14));
+    controlsLayout->addWidget(makeControlBlock(m_leftControls, "OPACIDAD", "del pincel", "100%", nullptr, 5, 100, 100));
+    controlsLayout->addWidget(makeControlBlock(m_leftControls, "PRESIÓN", "Sensibilidad\ndel lápiz", "85%", nullptr, 0, 100, 85));
+    controlsLayout->addStretch(1);
+
+    connect(sizeSlider, &QSlider::valueChanged, m_canvas, [this](int value) {
+        if (m_canvas) m_canvas->setBrushSize(value);
     });
 
-    auto* clear = new QPushButton("Clear canvas", brush);
-    brush->contentLayout()->addWidget(clear);
-    connect(clear, &QPushButton::clicked, m_canvas, &Core::Canvas::CanvasWidget::clearCanvas);
+    m_layersPanel = new QFrame(parent);
+    m_layersPanel->setObjectName("floatingPanel");
+    m_layersPanel->setFixedSize(330, 346);
+    auto* layersLayout = new QVBoxLayout(m_layersPanel);
+    layersLayout->setContentsMargins(0, 0, 0, 0);
+    layersLayout->setSpacing(0);
 
-    auto* layers = new DraggablePanel("LAYERS", workspace);
-    layers->setGeometry(1215, 70, 205, 245);
-    auto* blend = new QComboBox(layers);
-    blend->addItems({"Normal", "Multiply", "Screen", "Overlay"});
-    layers->contentLayout()->addWidget(new QLabel("Layer 1", layers));
-    layers->contentLayout()->addWidget(blend);
-    layers->contentLayout()->addWidget(new QPushButton("+ New layer", layers));
-    layers->contentLayout()->addWidget(new QLabel("Layer engine: next phase", layers));
+    auto* layerHeader = new QWidget(m_layersPanel);
+    layerHeader->setObjectName("panelHeader");
+    layerHeader->setFixedHeight(46);
+    auto* layerHeaderLayout = new QHBoxLayout(layerHeader);
+    layerHeaderLayout->setContentsMargins(18, 0, 12, 0);
+    layerHeaderLayout->addWidget(makeLabel(layerHeader, "CAPAS", "panelTitle"));
+    layerHeaderLayout->addStretch(1);
+    layerHeaderLayout->addWidget(makeButton(layerHeader, QStringLiteral("＋"), "panelHeaderButton"));
+    layersLayout->addWidget(layerHeader);
 
-    auto* color = new DraggablePanel("COLOR", workspace);
-    color->setGeometry(1215, 335, 205, 155);
-    auto* chooseColor = new QPushButton("Choose color", color);
-    color->contentLayout()->addWidget(chooseColor);
-    connect(chooseColor, &QPushButton::clicked, this, [this] {
-        const QColor selected = QColorDialog::getColor(QColor("#111111"), this, "Brush color");
-        if (selected.isValid()) {
-            m_canvas->setBrushColor(selected);
-        }
-    });
+    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 4", "100% N", true));
+    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 3", "55% N", false));
+    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 2", "100% N", false));
+    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 1", "100% N", false));
+    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Fondo", QStringLiteral("🔒"), false));
 
-    auto* inspector = new DraggablePanel("INSPECTOR", workspace);
-    inspector->setGeometry(1215, 510, 205, 190);
-    inspector->contentLayout()->addWidget(new QLabel("Native C++ / Qt 6", inspector));
-    inspector->contentLayout()->addWidget(new QLabel("Canvas: active", inspector));
-    inspector->contentLayout()->addWidget(new QLabel("Brush interface: active", inspector));
-    inspector->contentLayout()->addWidget(new QLabel("Panels: draggable", inspector));
+    m_quickBrushPanel = new QFrame(parent);
+    m_quickBrushPanel->setObjectName("floatingPanel");
+    m_quickBrushPanel->setFixedSize(330, 230);
+    auto* quickLayout = new QVBoxLayout(m_quickBrushPanel);
+    quickLayout->setContentsMargins(0, 0, 0, 0);
+    quickLayout->setSpacing(0);
 
-    tools->show();
-    brush->show();
-    layers->show();
-    color->show();
-    inspector->show();
+    auto* quickHeader = new QWidget(m_quickBrushPanel);
+    quickHeader->setObjectName("panelHeader");
+    quickHeader->setFixedHeight(46);
+    auto* quickHeaderLayout = new QHBoxLayout(quickHeader);
+    quickHeaderLayout->setContentsMargins(18, 0, 12, 0);
+    quickHeaderLayout->addWidget(makeLabel(quickHeader, "PINCEL RÁPIDO", "panelTitle"));
+    quickHeaderLayout->addStretch(1);
+    quickHeaderLayout->addWidget(makeButton(quickHeader, QStringLiteral("▣"), "panelHeaderButton"));
+    quickLayout->addWidget(quickHeader);
+
+    auto* quickGridHost = new QWidget(m_quickBrushPanel);
+    auto* quickGrid = new QGridLayout(quickGridHost);
+    quickGrid->setContentsMargins(12, 10, 12, 10);
+    quickGrid->setSpacing(8);
+    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Tinta transparente", "────────", false), 0, 0);
+    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Marcador", "━━━━━━", true), 0, 1);
+    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Lápiz", "┄┄┄┄┄┄", false), 1, 0);
+    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Aerógrafo", "≈≈≈≈≈≈", false), 1, 1);
+    quickLayout->addWidget(quickGridHost, 1);
+
+    m_canvas->lower();
+    m_toolStrip->raise();
+    m_leftControls->raise();
+    m_layersPanel->raise();
+    m_quickBrushPanel->raise();
+}
+
+void MainWindow::buildBottomBar(QWidget* parent)
+{
+    auto* layout = new QHBoxLayout(parent);
+    layout->setContentsMargins(20, 0, 20, 0);
+    layout->setSpacing(14);
+
+    auto* recordDot = new QLabel(parent);
+    recordDot->setObjectName("recordDot");
+    recordDot->setFixedSize(14, 14);
+    layout->addWidget(recordDot);
+    layout->addWidget(makeLabel(parent, "GRABANDO", "bottomStrong"));
+    layout->addWidget(makeLabel(parent, "00:00:00", "bottomText"));
+    layout->addWidget(makeLabel(parent, QStringLiteral("⌄"), "bottomText"));
+
+    layout->addStretch(1);
+
+    auto* processWrap = new QWidget(parent);
+    auto* processLayout = new QHBoxLayout(processWrap);
+    processLayout->setContentsMargins(0, 0, 0, 0);
+    processLayout->setSpacing(10);
+
+    auto* durationWrap = new QWidget(processWrap);
+    auto* durationLayout = new QVBoxLayout(durationWrap);
+    durationLayout->setContentsMargins(0, 0, 0, 0);
+    durationLayout->setSpacing(1);
+    durationLayout->addWidget(makeLabel(durationWrap, "PROCESO", "processCaption"));
+    auto* duration = new QComboBox(durationWrap);
+    duration->setObjectName("processSelect");
+    duration->addItems({"30 seg", "1 min", "3 min", "5 min"});
+    duration->setCurrentText("3 min");
+    durationLayout->addWidget(duration);
+
+    processLayout->addWidget(durationWrap);
+    processLayout->addWidget(makeButton(processWrap, QStringLiteral("▶  VISTA PREVIA"), "bottomButton"));
+    processLayout->addWidget(makeButton(processWrap, QStringLiteral("■  DETENER"), "bottomButton"));
+    processLayout->addWidget(makeButton(processWrap, "GUARDAR PNG", "bottomButton"));
+    layout->addWidget(processWrap);
+
+    layout->addStretch(1);
+
+    auto* zoom = new QWidget(parent);
+    zoom->setObjectName("zoomReadout");
+    auto* zoomLayout = new QHBoxLayout(zoom);
+    zoomLayout->setContentsMargins(8, 0, 8, 0);
+    zoomLayout->setSpacing(8);
+    zoomLayout->addWidget(makeButton(zoom, QStringLiteral("−"), "zoomButton"));
+    zoomLayout->addWidget(makeLabel(zoom, "100%", "bottomText"));
+    zoomLayout->addWidget(makeButton(zoom, QStringLiteral("＋"), "zoomButton"));
+    layout->addWidget(zoom);
+
+    auto* center = makeButton(parent, "C   CENTRAR", "bottomButton");
+    layout->addWidget(center);
+    layout->addWidget(makeButton(parent, QStringLiteral("⌄"), "squareBottomButton"));
+
+    connect(center, &QPushButton::clicked, m_canvas, [this] { if (m_canvas) m_canvas->resetView(); });
+}
+
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    QMainWindow::resizeEvent(event);
+    positionWorkspaceOverlays();
+}
+
+void MainWindow::positionWorkspaceOverlays()
+{
+    if (!m_workspace) return;
+
+    if (m_canvas) m_canvas->setGeometry(m_workspace->rect());
+    if (m_toolStrip) m_toolStrip->move(20, 66);
+    if (m_leftControls) m_leftControls->move(20, 294);
+
+    if (m_layersPanel) {
+        m_layersPanel->move(std::max(10, m_workspace->width() - m_layersPanel->width() - 20), 30);
+    }
+
+    if (m_quickBrushPanel) {
+        const int desiredTop = 485;
+        const int safeTop = std::max(30, m_workspace->height() - m_quickBrushPanel->height() - 20);
+        m_quickBrushPanel->move(
+            std::max(10, m_workspace->width() - m_quickBrushPanel->width() - 20),
+            std::min(desiredTop, safeTop));
+    }
 }
 
 void MainWindow::applyStyle()
 {
     setStyleSheet(R"(
-        QMainWindow, #workspace {
-            background: #171717;
-            color: #e8e6df;
+        * {
+            font-family: "Segoe UI";
         }
 
-        #draggablePanel {
-            background: #232323;
-            border: 1px solid #3b3b3b;
+        QMainWindow, #appRoot, #workspace {
+            background: #252629;
+            color: #f3f3f3;
+        }
+
+        #topBar, #bottomBar {
+            background: #0f1012;
+        }
+
+        #topBar {
+            border-bottom: 1px solid #303135;
+        }
+
+        #bottomBar {
+            border-top: 1px solid #2b2c30;
+        }
+
+        #wordmark {
+            color: #f3f3f3;
+            font-size: 27px;
+            font-weight: 800;
+            font-style: italic;
+        }
+
+        QPushButton {
+            outline: none;
+        }
+
+        #topTextButton {
+            min-width: 58px;
+            height: 40px;
+            border: 0;
+            background: transparent;
+            color: #b9bbc0;
+            font-size: 15px;
+        }
+
+        #topTextButton:hover {
+            color: white;
+        }
+
+        #topDivider {
+            background: #3b3c40;
+        }
+
+        #topIconButton {
+            width: 40px;
+            height: 40px;
+            border: 0;
+            background: transparent;
+            color: #aaaaaa;
+            font-size: 27px;
+        }
+
+        #topIconButton:hover {
+            color: white;
+        }
+
+        #appTitle {
+            color: #999ba1;
+            font-size: 12px;
+        }
+
+        #penStatus {
+            color: #dce9dc;
+            background: rgba(72,160,91,0.12);
+            border: 1px solid rgba(93,190,112,0.35);
+            border-radius: 11px;
+            padding: 3px 7px;
+            font-size: 10px;
+        }
+
+        #paintTool, #paintToolActive, #colorTool {
+            border: 0;
+            border-radius: 13px;
+            background: transparent;
+            color: #d8d8da;
+            font-size: 24px;
+        }
+
+        #paintTool:hover, #paintToolActive, #colorTool:hover {
+            background: #1d1f22;
+        }
+
+        #paintToolActive {
+            border-bottom: 2px solid #1688ff;
+        }
+
+        #colorTool {
+            color: #151515;
+            font-size: 31px;
+        }
+
+        #canvasShell {
+            background: #252629;
+        }
+
+        #toolStrip, #sliderColumn, #floatingPanel {
+            background: #0e0f11;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        #toolStrip, #sliderColumn {
+            border-radius: 13px;
+        }
+
+        #floatingPanel {
+            border-radius: 15px;
+        }
+
+        #stripButton, #stripButtonActive {
+            border: 0;
             border-radius: 8px;
+            background: transparent;
+            color: #d1d1d3;
+            font-size: 18px;
+        }
+
+        #stripButton:hover {
+            background: #1d1f22;
+        }
+
+        #stripButtonActive {
+            color: #1688ff;
+        }
+
+        #sliderColumn QSlider::groove:vertical {
+            width: 3px;
+            background: #3a3b3f;
+            border-radius: 1px;
+        }
+
+        #sliderColumn QSlider::sub-page:vertical {
+            background: #d7d7d8;
+        }
+
+        #sliderColumn QSlider::handle:vertical {
+            width: 14px;
+            height: 14px;
+            margin: 0 -6px;
+            border-radius: 7px;
+            background: #eeeeee;
+        }
+
+        #controlTitle {
+            color: #eeeeef;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        #controlSubtitle {
+            color: #babcc1;
+            font-size: 11px;
+        }
+
+        #controlOutput {
+            color: white;
+            font-size: 11px;
+        }
+
+        #panelHeader {
+            background: #0e0f11;
+            border-bottom: 1px solid #27282b;
         }
 
         #panelTitle {
-            color: #d8d5cc;
+            color: #eeeeef;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        #panelHeaderButton, #layerIconButton {
+            border: 0;
+            background: transparent;
+            color: #aaaaaa;
+            font-size: 18px;
+        }
+
+        #layerRow, #layerSelected {
+            background: #0e0f11;
+            border-bottom: 1px solid #252629;
+        }
+
+        #layerSelected {
+            background: #14304f;
+        }
+
+        #layerThumb, #layerThumbDark {
+            border-radius: 5px;
+            background: #e8e0d4;
+        }
+
+        #layerThumbDark {
+            background: #111214;
+            border: 1px solid #44464a;
+        }
+
+        #layerName {
+            color: #f0f0f0;
+            font-size: 13px;
+        }
+
+        #layerMeta {
+            color: #a8abb0;
+            font-size: 10px;
+        }
+
+        #quickCard, #quickCardSelected {
+            border: 1px solid #2a2b2f;
+            border-radius: 11px;
+            background: #17181a;
+            color: #bdbfc4;
+            text-align: left;
+            padding: 9px;
+            font-size: 10px;
+        }
+
+        #quickCard:hover {
+            background: #1d1e21;
+        }
+
+        #quickCardSelected {
+            border: 1px solid #1d8dff;
+            color: white;
+        }
+
+        #recordDot {
+            background: #de4242;
+            border-radius: 7px;
+        }
+
+        #bottomStrong {
+            color: #f0f0f0;
             font-size: 11px;
             font-weight: 700;
-            letter-spacing: 1px;
-            padding: 4px 2px 7px 2px;
-            border-bottom: 1px solid #3b3b3b;
         }
 
-        QLabel {
-            color: #c8c6c0;
+        #bottomText {
+            color: #d0d1d4;
+            font-size: 11px;
         }
 
-        QPushButton, QComboBox, QSpinBox {
-            background: #303030;
-            color: #eeeeea;
-            border: 1px solid #484848;
-            border-radius: 5px;
-            padding: 6px 8px;
+        #processCaption {
+            color: #999999;
+            font-size: 8px;
         }
 
-        QPushButton:hover {
-            background: #383838;
+        #processSelect {
+            border: 0;
+            background: transparent;
+            color: white;
+            font-size: 11px;
         }
 
-        QPushButton:checked {
-            background: #7d2424;
-            border-color: #a33a3a;
+        #processSelect QAbstractItemView {
+            background: #17181a;
+            color: white;
+            selection-background-color: #2487ff;
         }
 
-        QSlider::groove:horizontal {
-            height: 4px;
-            background: #444444;
-            border-radius: 2px;
+        #bottomButton, #squareBottomButton {
+            height: 38px;
+            border: 0;
+            border-radius: 9px;
+            background: #1b1c1f;
+            color: #dddddf;
+            padding: 0 15px;
+            font-size: 10px;
         }
 
-        QSlider::handle:horizontal {
-            width: 14px;
-            margin: -5px 0;
-            background: #b33b3b;
-            border-radius: 7px;
+        #bottomButton:hover, #squareBottomButton:hover {
+            background: #25272b;
+        }
+
+        #squareBottomButton {
+            min-width: 42px;
+            max-width: 42px;
+        }
+
+        #zoomReadout {
+            min-height: 38px;
+            max-height: 38px;
+            border-radius: 9px;
+            background: #17181a;
+        }
+
+        #zoomButton {
+            border: 0;
+            background: transparent;
+            color: #aaaaaa;
+            font-size: 16px;
         }
     )");
 }

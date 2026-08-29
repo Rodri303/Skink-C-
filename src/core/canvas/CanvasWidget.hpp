@@ -39,9 +39,10 @@ private:
     [[nodiscard]] QTransform documentTransform() const;
     [[nodiscard]] std::optional<QPointF> mapToDocument(const QPointF& viewportPosition) const;
     [[nodiscard]] bool isInsideDocument(const QPointF& documentPosition) const;
+    [[nodiscard]] Brush::BrushSample tabletSample(const QTabletEvent& event, const QPointF& documentPosition) const;
 
-    void beginStroke(const QPointF& documentPosition, qreal pressure);
-    void continueStroke(const QPointF& documentPosition, qreal pressure);
+    void beginStroke(const Brush::BrushSample& sample);
+    void continueStroke(const Brush::BrushSample& sample);
     void endStroke();
 
     Document::DrawingDocument m_document;

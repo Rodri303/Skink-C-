@@ -241,8 +241,8 @@ void MainWindow::buildTopBar(QWidget* parent)
     grid->addWidget(center, 0, 1, Qt::AlignCenter);
     grid->addWidget(right, 0, 2);
 
-    connect(undo, &QPushButton::clicked, m_canvas, [this] { if (m_canvas) m_canvas->undo(); });
-    connect(redo, &QPushButton::clicked, m_canvas, [this] { if (m_canvas) m_canvas->redo(); });
+    connect(undo, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->undo(); });
+    connect(redo, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->redo(); });
     connect(color, &QPushButton::clicked, this, [this] {
         const QColor selected = QColorDialog::getColor(QColor("#151515"), this, "Color del pincel");
         if (selected.isValid() && m_canvas) m_canvas->setBrushColor(selected);
@@ -278,7 +278,7 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     controlsLayout->addWidget(makeControlBlock(m_leftControls, "PRESIÓN", "Sensibilidad\ndel lápiz", "85%", nullptr, 0, 100, 85));
     controlsLayout->addStretch(1);
 
-    connect(sizeSlider, &QSlider::valueChanged, m_canvas, [this](int value) {
+    connect(sizeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (m_canvas) m_canvas->setBrushSize(value);
     });
 
@@ -393,7 +393,7 @@ void MainWindow::buildBottomBar(QWidget* parent)
     layout->addWidget(center);
     layout->addWidget(makeButton(parent, QStringLiteral("⌄"), "squareBottomButton"));
 
-    connect(center, &QPushButton::clicked, m_canvas, [this] { if (m_canvas) m_canvas->resetView(); });
+    connect(center, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->resetView(); });
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)

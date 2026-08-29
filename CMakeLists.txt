@@ -22,6 +22,12 @@ qt_add_executable(Skink
     src/core/brush/BasicBrushEngine.hpp
     src/core/canvas/CanvasWidget.cpp
     src/core/canvas/CanvasWidget.hpp
+    src/core/document/DrawingDocument.cpp
+    src/core/document/DrawingDocument.hpp
+    src/core/history/HistoryManager.cpp
+    src/core/history/HistoryManager.hpp
+    src/core/stroke/StrokeEngine.cpp
+    src/core/stroke/StrokeEngine.hpp
     src/ui/panels/DraggablePanel.cpp
     src/ui/panels/DraggablePanel.hpp
     src/ui/widgets/ToolButton.cpp

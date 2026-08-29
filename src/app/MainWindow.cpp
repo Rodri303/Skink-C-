@@ -2,8 +2,8 @@
 
 #include "core/canvas/CanvasWidget.hpp"
 #include "ui/workspace/WorkspaceWidget.hpp"
+#include "ui/topbar/TopBar.hpp"
 
-#include <QColorDialog>
 #include <QComboBox>
 #include <QFrame>
 #include <QGridLayout>
@@ -143,11 +143,12 @@ void MainWindow::buildInterface()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    auto* topBar = new QWidget(root);
-    topBar->setObjectName("topBar");
-    topBar->setFixedHeight(62);
-    buildTopBar(topBar);
+    auto* topBar = new Ui::TopBar::TopBar(root);
     layout->addWidget(topBar);
+
+    connect(topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
+    connect(topBar, &Ui::TopBar::TopBar::redoRequested, this, [this] { if (m_canvas) m_canvas->redo(); });
+    connect(topBar, &Ui::TopBar::TopBar::colorSelected, this, [this](const QColor& color) { if (m_canvas) m_canvas->setBrushColor(color); });
 
     m_workspace = new Ui::Workspace::WorkspaceWidget(root);
     layout->addWidget(m_workspace, 1);
@@ -166,82 +167,6 @@ void MainWindow::buildInterface()
     layout->addWidget(bottomBar);
 
     setCentralWidget(root);
-}
-
-void MainWindow::buildTopBar(QWidget* parent)
-{
-    auto* grid = new QGridLayout(parent);
-    grid->setContentsMargins(30, 0, 30, 0);
-    grid->setHorizontalSpacing(10);
-    grid->setColumnStretch(0, 1);
-    grid->setColumnStretch(1, 0);
-    grid->setColumnStretch(2, 1);
-
-    auto* left = new QWidget(parent);
-    auto* leftLayout = new QHBoxLayout(left);
-    leftLayout->setContentsMargins(0, 0, 0, 0);
-    leftLayout->setSpacing(10);
-
-    auto* wordmark = makeLabel(left, "SW!NK", "wordmark");
-    auto* file = makeButton(left, "Archivo", "topTextButton");
-    auto* settings = makeButton(left, "Ajustes", "topTextButton");
-    auto* divider = new QFrame(left);
-    divider->setObjectName("topDivider");
-    divider->setFixedSize(1, 30);
-    auto* undo = makeButton(left, QStringLiteral("↶"), "topIconButton");
-    auto* redo = makeButton(left, QStringLiteral("↷"), "topIconButton");
-    undo->setToolTip("Deshacer");
-    redo->setToolTip("Rehacer");
-
-    leftLayout->addWidget(wordmark);
-    leftLayout->addSpacing(14);
-    leftLayout->addWidget(file);
-    leftLayout->addWidget(settings);
-    leftLayout->addSpacing(8);
-    leftLayout->addWidget(divider);
-    leftLayout->addWidget(undo);
-    leftLayout->addWidget(redo);
-    leftLayout->addStretch(1);
-
-    auto* center = new QWidget(parent);
-    auto* centerLayout = new QHBoxLayout(center);
-    centerLayout->setContentsMargins(0, 0, 0, 0);
-    centerLayout->setSpacing(10);
-    centerLayout->addWidget(makeLabel(center, "SW!NK · Native C++", "appTitle"));
-    centerLayout->addWidget(makeLabel(center, "Lápiz: Qt nativo", "penStatus"));
-
-    auto* right = new QWidget(parent);
-    auto* rightLayout = new QHBoxLayout(right);
-    rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(6);
-    rightLayout->addStretch(1);
-
-    auto* brush = makeButton(right, QStringLiteral("╱"), "paintToolActive");
-    brush->setToolTip("Pincel");
-    auto* eraser = makeButton(right, QStringLiteral("▱"), "paintTool");
-    eraser->setToolTip("Borrador");
-    auto* layers = makeButton(right, QStringLiteral("◇"), "paintTool");
-    layers->setToolTip("Capas");
-    auto* color = makeButton(right, QStringLiteral("●"), "colorTool");
-    color->setToolTip("Color");
-
-    for (auto* button : {brush, eraser, layers, color}) button->setFixedSize(52, 52);
-
-    rightLayout->addWidget(brush);
-    rightLayout->addWidget(eraser);
-    rightLayout->addWidget(layers);
-    rightLayout->addWidget(color);
-
-    grid->addWidget(left, 0, 0);
-    grid->addWidget(center, 0, 1, Qt::AlignCenter);
-    grid->addWidget(right, 0, 2);
-
-    connect(undo, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->undo(); });
-    connect(redo, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->redo(); });
-    connect(color, &QPushButton::clicked, this, [this] {
-        const QColor selected = QColorDialog::getColor(QColor("#151515"), this, "Color del pincel");
-        if (selected.isValid() && m_canvas) m_canvas->setBrushColor(selected);
-    });
 }
 
 void MainWindow::buildWorkspaceOverlays(QWidget* parent)

@@ -17,7 +17,6 @@ public:
 
 private:
     void buildInterface();
-    void buildTopBar(QWidget* parent);
     void buildWorkspaceOverlays(QWidget* parent);
     void buildBottomBar(QWidget* parent);
     void applyStyle();

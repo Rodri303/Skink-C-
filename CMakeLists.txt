@@ -34,6 +34,8 @@ qt_add_executable(Skink
     src/ui/widgets/ToolButton.hpp
     src/ui/workspace/WorkspaceWidget.cpp
     src/ui/workspace/WorkspaceWidget.hpp
+    src/ui/topbar/TopBar.cpp
+    src/ui/topbar/TopBar.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

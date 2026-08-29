@@ -3,6 +3,8 @@
 #include "core/canvas/CanvasWidget.hpp"
 #include "ui/workspace/WorkspaceWidget.hpp"
 #include "ui/topbar/TopBar.hpp"
+#include "ui/toolrail/ToolRail.hpp"
+#include "ui/brush/BrushControls.hpp"
 
 #include <QComboBox>
 #include <QFrame>
@@ -171,34 +173,10 @@ void MainWindow::buildInterface()
 
 void MainWindow::buildWorkspaceOverlays(QWidget* parent)
 {
-    m_toolStrip = new QFrame(parent);
-    m_toolStrip->setObjectName("toolStrip");
-    m_toolStrip->setFixedSize(50, 198);
-    auto* stripLayout = new QVBoxLayout(m_toolStrip);
-    stripLayout->setContentsMargins(6, 7, 6, 7);
-    stripLayout->setSpacing(5);
+    m_toolStrip = new Ui::ToolRail::ToolRail(parent);
 
-    const QStringList stripIcons{QStringLiteral("➤"), QStringLiteral("□"), QStringLiteral("✋"), QStringLiteral("⤢")};
-    for (int index = 0; index < stripIcons.size(); ++index) {
-        auto* button = makeButton(m_toolStrip, stripIcons[index], index == 0 ? "stripButtonActive" : "stripButton");
-        button->setFixedSize(38, 40);
-        stripLayout->addWidget(button);
-    }
-
-    m_leftControls = new QWidget(parent);
-    m_leftControls->setObjectName("leftControls");
-    m_leftControls->setFixedSize(220, 432);
-    auto* controlsLayout = new QVBoxLayout(m_leftControls);
-    controlsLayout->setContentsMargins(0, 0, 0, 0);
-    controlsLayout->setSpacing(18);
-
-    QSlider* sizeSlider = nullptr;
-    controlsLayout->addWidget(makeControlBlock(m_leftControls, "TAMAÑO", "del pincel", "14 px", &sizeSlider, 1, 160, 14));
-    controlsLayout->addWidget(makeControlBlock(m_leftControls, "OPACIDAD", "del pincel", "100%", nullptr, 5, 100, 100));
-    controlsLayout->addWidget(makeControlBlock(m_leftControls, "PRESIÓN", "Sensibilidad\ndel lápiz", "85%", nullptr, 0, 100, 85));
-    controlsLayout->addStretch(1);
-
-    connect(sizeSlider, &QSlider::valueChanged, this, [this](int value) {
+    m_leftControls = new Ui::Brush::BrushControls(parent);
+    connect(m_leftControls, &Ui::Brush::BrushControls::brushSizeChanged, this, [this](int value) {
         if (m_canvas) m_canvas->setBrushSize(value);
     });
 

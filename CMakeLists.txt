@@ -36,6 +36,10 @@ qt_add_executable(Skink
     src/ui/workspace/WorkspaceWidget.hpp
     src/ui/topbar/TopBar.cpp
     src/ui/topbar/TopBar.hpp
+    src/ui/toolrail/ToolRail.cpp
+    src/ui/toolrail/ToolRail.hpp
+    src/ui/brush/BrushControls.cpp
+    src/ui/brush/BrushControls.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

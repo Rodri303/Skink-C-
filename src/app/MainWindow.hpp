@@ -6,6 +6,8 @@ class QWidget;
 
 namespace Skink::Core::Canvas { class CanvasWidget; }
 namespace Skink::Ui::Workspace { class WorkspaceWidget; }
+namespace Skink::Ui::ToolRail { class ToolRail; }
+namespace Skink::Ui::Brush { class BrushControls; }
 
 namespace Skink::App {
 
@@ -23,8 +25,8 @@ private:
 
     Core::Canvas::CanvasWidget* m_canvas{nullptr};
     Ui::Workspace::WorkspaceWidget* m_workspace{nullptr};
-    QWidget* m_toolStrip{nullptr};
-    QWidget* m_leftControls{nullptr};
+    Ui::ToolRail::ToolRail* m_toolStrip{nullptr};
+    Ui::Brush::BrushControls* m_leftControls{nullptr};
     QWidget* m_layersPanel{nullptr};
     QWidget* m_quickBrushPanel{nullptr};
 };

@@ -10,9 +10,9 @@
 namespace Skink::Ui::Workspace {
 
 namespace {
-constexpr int kOverlayMargin = 20;
-constexpr int kToolRailTop = 66;
-constexpr int kControlsTop = 294;
+constexpr int kOverlayMargin = 18;
+constexpr int kToolRailTop = 52;
+constexpr int kControlsTop = 232;
 constexpr int kLayersTop = 30;
 constexpr int kPanelSpacing = 14;
 }

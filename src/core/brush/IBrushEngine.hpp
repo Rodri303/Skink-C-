@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QPointF>
+#include <QtGlobal>
 
 class QPainter;
 
@@ -16,6 +17,11 @@ struct BrushSettings {
 struct BrushSample {
     QPointF position;
     qreal pressure{1.0};
+    qreal xTilt{0.0};
+    qreal yTilt{0.0};
+    qreal rotation{0.0};
+    qreal tangentialPressure{0.0};
+    quint64 timestamp{0};
 };
 
 class IBrushEngine {

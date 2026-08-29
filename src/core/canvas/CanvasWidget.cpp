@@ -78,10 +78,18 @@ void CanvasWidget::resetView()
 void CanvasWidget::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
-    painter.fillRect(rect(), QColor("#2a2a2a"));
+    painter.fillRect(rect(), QColor("#252629"));
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-    painter.setTransform(documentTransform());
-    painter.fillRect(QRectF(QPointF(0.0, 0.0), m_document.size()), QColor("#f2f0e9"));
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const QTransform transform = documentTransform();
+    painter.setTransform(transform);
+
+    const QRectF paperRect(QPointF(0.0, 0.0), m_document.size());
+
+    painter.fillRect(paperRect.translated(0.0, 18.0), QColor(0, 0, 0, 34));
+    painter.fillRect(paperRect.translated(0.0, 9.0), QColor(0, 0, 0, 24));
+    painter.fillRect(paperRect, QColor("#ffffff"));
     painter.drawImage(QPointF(0.0, 0.0), m_document.image());
 }
 

@@ -7,6 +7,7 @@
 #include "ui/brush/BrushControls.hpp"
 #include "ui/brush/QuickBrushPanel.hpp"
 #include "ui/bottom/BottomDock.hpp"
+#include "ui/color/ColorPicker.hpp"
 #include "ui/layers/LayersPanel.hpp"
 #include "ui/docking/SkinkDockPanel.hpp"
 
@@ -36,11 +37,19 @@ void MainWindow::buildInterface()
     layout->setSpacing(0);
 
     auto* topBar = new Ui::TopBar::TopBar(root);
+    m_colorPicker = new Ui::Color::ColorPicker(this);
+    topBar->setActiveColor(m_colorPicker->currentColor());
     layout->addWidget(topBar);
 
     connect(topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
     connect(topBar, &Ui::TopBar::TopBar::redoRequested, this, [this] { if (m_canvas) m_canvas->redo(); });
-    connect(topBar, &Ui::TopBar::TopBar::colorSelected, this, [this](const QColor& color) { if (m_canvas) m_canvas->setBrushColor(color); });
+    connect(topBar, &Ui::TopBar::TopBar::colorPickerRequested, this, [this] {
+        m_colorPicker->open(this);
+    });
+    connect(m_colorPicker, &Ui::Color::ColorPicker::colorSelected, this, [this, topBar](const QColor& color) {
+        if (m_canvas) m_canvas->setBrushColor(color);
+        topBar->setActiveColor(color);
+    });
 
     m_workspace = new Ui::Workspace::WorkspaceWidget(root);
     layout->addWidget(m_workspace, 1);
@@ -197,8 +206,7 @@ void MainWindow::applyStyle()
         }
 
         #colorTool {
-            color: #151515;
-            font-size: 31px;
+            padding: 0;
         }
 
         #canvasShell {

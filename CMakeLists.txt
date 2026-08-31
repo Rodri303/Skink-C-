@@ -50,6 +50,8 @@ qt_add_executable(Skink
     src/ui/bottom/BottomDock.hpp
     src/ui/hud/CanvasHud.cpp
     src/ui/hud/CanvasHud.hpp
+    src/ui/color/ColorPicker.cpp
+    src/ui/color/ColorPicker.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

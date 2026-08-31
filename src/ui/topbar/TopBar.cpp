@@ -1,6 +1,6 @@
 #include "ui/topbar/TopBar.hpp"
 
-#include <QColorDialog>
+#include <QColor>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -73,8 +73,18 @@ TopBar::TopBar(QWidget* parent)
     auto* brush = makeButton(right, QStringLiteral("╱"), "paintToolActive");
     auto* eraser = makeButton(right, QStringLiteral("▱"), "paintTool");
     auto* layers = makeButton(right, QStringLiteral("◇"), "paintTool");
-    auto* color = makeButton(right, QStringLiteral("●"), "colorTool");
+    auto* color = makeButton(right, QString(), "colorTool");
     for (auto* button : {brush, eraser, layers, color}) button->setFixedSize(50, 46);
+
+    auto* colorLayout = new QHBoxLayout(color);
+    colorLayout->setContentsMargins(0, 0, 0, 0);
+    m_colorIndicator = new QFrame(color);
+    m_colorIndicator->setObjectName("colorIndicator");
+    m_colorIndicator->setFixedSize(33, 33);
+    m_colorIndicator->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    colorLayout->addWidget(m_colorIndicator, 0, Qt::AlignCenter);
+    setActiveColor(QColor("#151515"));
+
     rightLayout->addWidget(brush);
     rightLayout->addWidget(eraser);
     rightLayout->addWidget(layers);
@@ -86,10 +96,16 @@ TopBar::TopBar(QWidget* parent)
 
     connect(undo, &QPushButton::clicked, this, &TopBar::undoRequested);
     connect(redo, &QPushButton::clicked, this, &TopBar::redoRequested);
-    connect(color, &QPushButton::clicked, this, [this] {
-        const QColor selected = QColorDialog::getColor(QColor("#151515"), this, "Color del pincel");
-        if (selected.isValid()) emit colorSelected(selected);
-    });
+    connect(color, &QPushButton::clicked, this, &TopBar::colorPickerRequested);
+}
+
+void TopBar::setActiveColor(const QColor& color)
+{
+    if (!color.isValid()) return;
+
+    m_colorIndicator->setStyleSheet(QString(
+        "background-color: %1; border: 2px solid white; border-radius: 17px;")
+        .arg(color.name(QColor::HexRgb)));
 }
 
 } // namespace Skink::Ui::TopBar

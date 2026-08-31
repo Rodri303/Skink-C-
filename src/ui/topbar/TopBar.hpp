@@ -3,6 +3,7 @@
 #include <QWidget>
 
 class QColor;
+class QFrame;
 
 namespace Skink::Ui::TopBar {
 
@@ -11,11 +12,15 @@ class TopBar final : public QWidget {
 
 public:
     explicit TopBar(QWidget* parent = nullptr);
+    void setActiveColor(const QColor& color);
 
 signals:
     void undoRequested();
     void redoRequested();
-    void colorSelected(const QColor& color);
+    void colorPickerRequested();
+
+private:
+    QFrame* m_colorIndicator{nullptr};
 };
 
 } // namespace Skink::Ui::TopBar

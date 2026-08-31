@@ -21,7 +21,7 @@ CanvasWidget::CanvasWidget(QWidget* parent)
     setCursor(Qt::CrossCursor);
 
     auto settings = m_brush.settings();
-    settings.color = QColor("#111111");
+    settings.color = QColor("#151515");
     settings.size = 14.0;
     m_brush.setSettings(settings);
 

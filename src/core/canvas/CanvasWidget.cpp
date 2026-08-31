@@ -22,7 +22,7 @@ CanvasWidget::CanvasWidget(QWidget* parent)
 
     auto settings = m_brush.settings();
     settings.color = QColor("#111111");
-    settings.size = 18.0;
+    settings.size = 14.0;
     m_brush.setSettings(settings);
 
     m_history.initialize(m_document.image());

@@ -50,6 +50,12 @@ void WorkspaceWidget::showBrushSizeHud(int size)
     updateOverlayGeometry();
 }
 
+void WorkspaceWidget::showRotationHud(int degrees)
+{
+    m_canvasHud->showMessage(QStringLiteral("ROTACI\u00D3N %1\u00B0").arg(degrees));
+    updateOverlayGeometry();
+}
+
 void WorkspaceWidget::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);

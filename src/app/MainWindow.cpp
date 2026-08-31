@@ -111,6 +111,8 @@ void MainWindow::buildInterface()
     connect(m_bottomDock, &Ui::Bottom::BottomDock::resetViewRequested, m_canvas, &Core::Canvas::CanvasWidget::resetView);
     connect(m_canvas, &Core::Canvas::CanvasWidget::zoomChanged, m_bottomDock, &Ui::Bottom::BottomDock::setZoomPercent);
     connect(m_canvas, &Core::Canvas::CanvasWidget::zoomChanged, m_workspace, &Ui::Workspace::WorkspaceWidget::showZoomHud);
+    connect(m_canvas, &Core::Canvas::CanvasWidget::rotationChanged,
+            m_workspace, &Ui::Workspace::WorkspaceWidget::showRotationHud);
     layout->addWidget(m_bottomDock);
 
     setCentralWidget(root);
@@ -137,6 +139,10 @@ void MainWindow::buildInterface()
             m_canvas, &Core::Canvas::CanvasWidget::resetView);
     connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::temporaryPanChanged,
             m_canvas, &Core::Canvas::CanvasWidget::setTemporaryPan);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::navigationModifiersChanged,
+            m_canvas, &Core::Canvas::CanvasWidget::setNavigationModifiers);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::navigationCancelled,
+            m_canvas, &Core::Canvas::CanvasWidget::cancelNavigation);
     connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::undoRequested,
             m_canvas, &Core::Canvas::CanvasWidget::undo);
     connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::redoRequested,

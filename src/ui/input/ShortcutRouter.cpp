@@ -26,6 +26,8 @@ bool ShortcutRouter::eventFilter(QObject* watched, QEvent* event)
 
     if (event->type() == QEvent::ApplicationDeactivate) {
         setTemporaryPan(false);
+        setNavigationModifiers(false, false, false);
+        emit navigationCancelled();
         return false;
     }
 
@@ -35,14 +37,30 @@ bool ShortcutRouter::eventFilter(QObject* watched, QEvent* event)
 
     auto* keyEvent = static_cast<QKeyEvent*>(event);
     const bool pressed = event->type() == QEvent::KeyPress;
+    const bool editableFocus = focusAcceptsTextInput();
 
-    if (keyEvent->key() == Qt::Key_Space && (!focusAcceptsTextInput() || m_temporaryPanActive)) {
+    if (!keyEvent->isAutoRepeat()
+        && (keyEvent->key() == Qt::Key_Control
+            || keyEvent->key() == Qt::Key_Alt
+            || keyEvent->key() == Qt::Key_Shift)) {
+        bool control = m_controlHeld;
+        bool alt = m_altHeld;
+        bool shift = m_shiftHeld;
+
+        if (keyEvent->key() == Qt::Key_Control && (!pressed || !editableFocus)) control = pressed;
+        if (keyEvent->key() == Qt::Key_Alt && (!pressed || !editableFocus)) alt = pressed;
+        if (keyEvent->key() == Qt::Key_Shift && (!pressed || !editableFocus)) shift = pressed;
+        setNavigationModifiers(control, alt, shift);
+        return false;
+    }
+
+    if (keyEvent->key() == Qt::Key_Space && (!editableFocus || m_temporaryPanActive)) {
         if (!keyEvent->isAutoRepeat()) setTemporaryPan(pressed);
         keyEvent->accept();
         return true;
     }
 
-    if (!pressed || focusAcceptsTextInput()) return false;
+    if (!pressed || editableFocus) return false;
 
     if (keyEvent->matches(QKeySequence::Undo)) {
         emit undoRequested();
@@ -92,6 +110,16 @@ void ShortcutRouter::setTemporaryPan(bool active)
 
     m_temporaryPanActive = active;
     emit temporaryPanChanged(m_temporaryPanActive);
+}
+
+void ShortcutRouter::setNavigationModifiers(bool control, bool alt, bool shift)
+{
+    if (m_controlHeld == control && m_altHeld == alt && m_shiftHeld == shift) return;
+
+    m_controlHeld = control;
+    m_altHeld = alt;
+    m_shiftHeld = shift;
+    emit navigationModifiersChanged(m_controlHeld, m_altHeld, m_shiftHeld);
 }
 
 } // namespace Skink::Ui::Input

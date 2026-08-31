@@ -8,6 +8,8 @@
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 namespace Skink::Core::Canvas {
 
@@ -72,8 +74,34 @@ void CanvasWidget::setTemporaryPan(bool active)
 
     m_temporaryPan = active;
     if (m_temporaryPan && m_drawing) endStroke();
-    if (!m_temporaryPan && m_panning && m_panRequiresTemporary) endPan();
+    if (!m_temporaryPan
+        && m_navigationGesture == NavigationGesture::Pan
+        && m_panRequiresTemporary) {
+        endNavigationGesture();
+    }
     updateNavigationCursor();
+}
+
+void CanvasWidget::setNavigationModifiers(bool control, bool alt, bool shift)
+{
+    m_controlHeld = control;
+    m_altHeld = alt;
+    m_shiftHeld = shift;
+
+    if (m_navigationGesture == NavigationGesture::Rotation && !m_controlHeld) {
+        endNavigationGesture();
+    } else if (m_navigationGesture == NavigationGesture::DragZoom && !m_altHeld) {
+        endNavigationGesture();
+    }
+}
+
+void CanvasWidget::cancelNavigation()
+{
+    m_temporaryPan = false;
+    m_controlHeld = false;
+    m_altHeld = false;
+    m_shiftHeld = false;
+    endNavigationGesture();
 }
 
 void CanvasWidget::clearCanvas()
@@ -103,11 +131,15 @@ void CanvasWidget::redo()
 
 void CanvasWidget::resetView()
 {
+    endNavigationGesture();
     m_pan = {};
-    const bool changed = !qFuzzyCompare(m_zoom, 1.0);
+    const bool zoomChangedValue = !qFuzzyCompare(m_zoom, 1.0);
+    const bool rotationChangedValue = !qFuzzyIsNull(m_rotationDegrees);
     m_zoom = 1.0;
+    m_rotationDegrees = 0.0;
     update();
-    if (changed) emit zoomChanged(zoomPercent());
+    if (zoomChangedValue) emit zoomChanged(zoomPercent());
+    if (rotationChangedValue) emit rotationChanged(0);
 }
 
 void CanvasWidget::zoomIn()
@@ -147,9 +179,7 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
 {
     setFocus(Qt::MouseFocusReason);
 
-    if (event->button() == Qt::MiddleButton
-        || (event->button() == Qt::LeftButton && navigationPanActive())) {
-        beginPan(event->position(), event->button(), false);
+    if (beginNavigation(event->position(), event->button(), false)) {
         event->accept();
         return;
     }
@@ -168,8 +198,22 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
 
 void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_panning && !m_tabletPanning && (event->buttons() & m_panButton)) {
-        updatePan(event->position());
+    if (m_navigationGesture != NavigationGesture::None && !m_navigationUsesTablet) {
+        if (!(event->buttons() & m_navigationMouseButton)) {
+            endNavigationGesture();
+        } else if (m_navigationGesture == NavigationGesture::Pan) {
+            updatePan(event->position());
+        } else if (m_navigationGesture == NavigationGesture::Rotation) {
+            updateRotation(event->position());
+        } else if (m_navigationGesture == NavigationGesture::DragZoom) {
+            updateDragZoom(event->position());
+        }
+        event->accept();
+        return;
+    }
+
+    if ((event->buttons() & Qt::LeftButton)
+        && beginNavigation(event->position(), Qt::LeftButton, false)) {
         event->accept();
         return;
     }
@@ -188,8 +232,10 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 
 void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (m_panning && !m_tabletPanning && event->button() == m_panButton) {
-        endPan();
+    if (m_navigationGesture != NavigationGesture::None
+        && !m_navigationUsesTablet
+        && event->button() == m_navigationMouseButton) {
+        endNavigationGesture();
         event->accept();
         return;
     }
@@ -214,22 +260,30 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
 
     switch (event->type()) {
     case QEvent::TabletPress:
-        if (navigationPanActive()) {
-            beginPan(event->position(), Qt::NoButton, true);
-        } else if (drawingToolActive() && documentPosition && isInsideDocument(*documentPosition)) {
+        if (beginNavigation(event->position(), Qt::LeftButton, true)) {
+            break;
+        }
+        if (drawingToolActive() && documentPosition && isInsideDocument(*documentPosition)) {
             beginStroke(tabletSample(*event, *documentPosition));
         }
         break;
     case QEvent::TabletMove:
-        if (m_panning && m_tabletPanning) {
+        if (m_navigationGesture == NavigationGesture::Pan && m_navigationUsesTablet) {
             updatePan(event->position());
+        } else if (m_navigationGesture == NavigationGesture::Rotation && m_navigationUsesTablet) {
+            updateRotation(event->position());
+        } else if (m_navigationGesture == NavigationGesture::DragZoom && m_navigationUsesTablet) {
+            updateDragZoom(event->position());
+        } else if (event->pressure() > 0.0
+                   && beginNavigation(event->position(), Qt::LeftButton, true)) {
+            break;
         } else if (m_drawing && documentPosition) {
             continueStroke(tabletSample(*event, *documentPosition));
         }
         break;
     case QEvent::TabletRelease:
-        if (m_panning && m_tabletPanning) {
-            endPan();
+        if (m_navigationGesture != NavigationGesture::None && m_navigationUsesTablet) {
+            endNavigationGesture();
         } else if (m_drawing) {
             if (documentPosition && event->pressure() > 0.0) {
                 continueStroke(tabletSample(*event, *documentPosition));
@@ -254,11 +308,41 @@ bool CanvasWidget::navigationPanActive() const noexcept
     return m_activeTool == Tools::Tool::Pan || m_temporaryPan;
 }
 
+bool CanvasWidget::beginNavigation(
+    const QPointF& position,
+    Qt::MouseButton mouseButton,
+    bool tablet)
+{
+    if (m_navigationGesture != NavigationGesture::None) return true;
+
+    if (mouseButton == Qt::MiddleButton) {
+        beginPan(position, mouseButton, tablet);
+        return true;
+    }
+    if (mouseButton != Qt::LeftButton) return false;
+
+    if (navigationPanActive()) {
+        beginPan(position, mouseButton, tablet);
+        return true;
+    }
+    if (m_controlHeld) {
+        beginRotation(position, mouseButton, tablet);
+        return true;
+    }
+    if (m_altHeld) {
+        beginDragZoom(position, mouseButton, tablet);
+        return true;
+    }
+    return false;
+}
+
 void CanvasWidget::beginPan(const QPointF& position, Qt::MouseButton mouseButton, bool tablet)
 {
-    m_panning = true;
-    m_tabletPanning = tablet;
-    m_panButton = mouseButton;
+    if (m_drawing) endStroke();
+
+    m_navigationGesture = NavigationGesture::Pan;
+    m_navigationUsesTablet = tablet;
+    m_navigationMouseButton = mouseButton;
     m_panRequiresTemporary = m_temporaryPan && m_activeTool != Tools::Tool::Pan;
     m_lastPanPosition = position;
     updateNavigationCursor();
@@ -271,19 +355,83 @@ void CanvasWidget::updatePan(const QPointF& position)
     update();
 }
 
-void CanvasWidget::endPan()
+void CanvasWidget::beginRotation(
+    const QPointF& position,
+    Qt::MouseButton mouseButton,
+    bool tablet)
 {
-    m_panning = false;
-    m_tabletPanning = false;
+    if (m_drawing) endStroke();
+
+    m_navigationGesture = NavigationGesture::Rotation;
+    m_navigationUsesTablet = tablet;
+    m_navigationMouseButton = mouseButton;
+    m_rotationCenter = QPointF(width() / 2.0 + m_pan.x(), height() / 2.0 + m_pan.y());
+    m_rotationStartDegrees = m_rotationDegrees;
+    m_rotationStartPointerAngle = std::atan2(
+        position.y() - m_rotationCenter.y(),
+        position.x() - m_rotationCenter.x());
+    updateNavigationCursor();
+    emit rotationChanged(qRound(m_rotationDegrees));
+}
+
+void CanvasWidget::updateRotation(const QPointF& position)
+{
+    const qreal pointerAngle = std::atan2(
+        position.y() - m_rotationCenter.y(),
+        position.x() - m_rotationCenter.x());
+    const qreal deltaRadians = std::remainder(
+        pointerAngle - m_rotationStartPointerAngle,
+        2.0 * std::numbers::pi_v<qreal>);
+    qreal nextRotation = m_rotationStartDegrees
+        + deltaRadians * 180.0 / std::numbers::pi_v<qreal>;
+    if (m_shiftHeld) nextRotation = std::round(nextRotation / 15.0) * 15.0;
+    if (qFuzzyIsNull(nextRotation - m_rotationDegrees)) return;
+
+    m_rotationDegrees = nextRotation;
+    update();
+    emit rotationChanged(qRound(m_rotationDegrees));
+}
+
+void CanvasWidget::beginDragZoom(
+    const QPointF& position,
+    Qt::MouseButton mouseButton,
+    bool tablet)
+{
+    if (m_drawing) endStroke();
+
+    m_navigationGesture = NavigationGesture::DragZoom;
+    m_navigationUsesTablet = tablet;
+    m_navigationMouseButton = mouseButton;
+    m_dragZoomLastX = position.x();
+    updateNavigationCursor();
+    emit zoomChanged(zoomPercent());
+}
+
+void CanvasWidget::updateDragZoom(const QPointF& position)
+{
+    const qreal deltaX = position.x() - m_dragZoomLastX;
+    m_dragZoomLastX = position.x();
+    const qreal sensitivity = m_shiftHeld ? 0.0022 : 0.0055;
+    applyZoom(std::exp(deltaX * sensitivity), rect().center());
+}
+
+void CanvasWidget::endNavigationGesture()
+{
+    m_navigationGesture = NavigationGesture::None;
+    m_navigationUsesTablet = false;
     m_panRequiresTemporary = false;
-    m_panButton = Qt::NoButton;
+    m_navigationMouseButton = Qt::NoButton;
     updateNavigationCursor();
 }
 
 void CanvasWidget::updateNavigationCursor()
 {
-    if (m_panning) {
+    if (m_navigationGesture == NavigationGesture::Pan) {
         setCursor(Qt::ClosedHandCursor);
+    } else if (m_navigationGesture == NavigationGesture::Rotation) {
+        setCursor(Qt::SizeAllCursor);
+    } else if (m_navigationGesture == NavigationGesture::DragZoom) {
+        setCursor(Qt::SizeHorCursor);
     } else if (navigationPanActive()) {
         setCursor(Qt::OpenHandCursor);
     } else {
@@ -339,6 +487,7 @@ QTransform CanvasWidget::documentTransform() const
 {
     QTransform transform;
     transform.translate(width() / 2.0 + m_pan.x(), height() / 2.0 + m_pan.y());
+    transform.rotate(m_rotationDegrees);
     transform.scale(m_zoom, m_zoom);
     transform.translate(-m_document.size().width() / 2.0, -m_document.size().height() / 2.0);
     return transform;

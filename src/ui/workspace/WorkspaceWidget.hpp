@@ -17,6 +17,7 @@ public:
     void setLeftOverlays(QWidget* toolRail, QWidget* brushControls);
     void showZoomHud(int percent);
     void showBrushSizeHud(int size);
+    void showRotationHud(int degrees);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;

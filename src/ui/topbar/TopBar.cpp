@@ -97,6 +97,8 @@ TopBar::TopBar(QWidget* parent)
 
     connect(undo, &QPushButton::clicked, this, &TopBar::undoRequested);
     connect(redo, &QPushButton::clicked, this, &TopBar::redoRequested);
+    connect(brush, &QPushButton::clicked, this, &TopBar::quickBrushPanelRequested);
+    connect(layers, &QPushButton::clicked, this, &TopBar::layersPanelRequested);
     connect(color, &QPushButton::clicked, this, &TopBar::colorPickerRequested);
 }
 

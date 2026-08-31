@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 namespace Skink::Ui::Layers {
@@ -56,7 +57,8 @@ QPushButton* makeRow(QWidget* parent, const QString& name, const QString& meta, 
 LayersPanel::LayersPanel(QWidget* parent) : QFrame(parent)
 {
     setObjectName("floatingPanel");
-    setFixedSize(330, 376);
+    setMinimumSize(330, 376);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);

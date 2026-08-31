@@ -17,6 +17,8 @@ public:
 signals:
     void undoRequested();
     void redoRequested();
+    void quickBrushPanelRequested();
+    void layersPanelRequested();
     void colorPickerRequested();
 
 private:

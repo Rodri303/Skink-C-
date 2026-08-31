@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QSlider>
 #include <QVBoxLayout>
 
@@ -16,6 +17,8 @@ namespace {
 // Provisional panel geometry: SWINK only supplied a native system picker.
 constexpr int kPanelWidth = 280;
 constexpr int kPanelMinimumHeight = 390;
+constexpr int kPanelMaximumWidth = 320;
+constexpr int kPanelMaximumHeight = 500;
 
 QString sliderStyle(const QColor& start, const QColor& end)
 {
@@ -49,8 +52,9 @@ ColorPanel::ColorPanel(QWidget* parent)
 {
     setObjectName("colorPanel");
     setAttribute(Qt::WA_StyledBackground, true);
-    setFixedWidth(kPanelWidth);
-    setMinimumHeight(kPanelMinimumHeight);
+    setMinimumSize(kPanelWidth, kPanelMinimumHeight);
+    setMaximumSize(kPanelMaximumWidth, kPanelMaximumHeight);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(18, 18, 18, 18);

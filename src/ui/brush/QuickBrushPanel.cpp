@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 namespace Skink::Ui::Brush {
@@ -12,7 +13,8 @@ namespace Skink::Ui::Brush {
 QuickBrushPanel::QuickBrushPanel(QWidget* parent) : QFrame(parent)
 {
     setObjectName("floatingPanel");
-    setFixedSize(330, 254);
+    setMinimumSize(330, 254);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);

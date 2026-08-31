@@ -28,6 +28,7 @@ protected:
 private:
     void buildInterface();
     void buildWorkspaceOverlays(QWidget* parent);
+    void showDockPanel(Ui::Docking::SkinkDockPanel* dock);
     void applyStyle();
 
     Core::Canvas::CanvasWidget* m_canvas{nullptr};

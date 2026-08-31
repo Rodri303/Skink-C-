@@ -47,6 +47,12 @@ void MainWindow::buildInterface()
 
     connect(topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
     connect(topBar, &Ui::TopBar::TopBar::redoRequested, this, [this] { if (m_canvas) m_canvas->redo(); });
+    connect(topBar, &Ui::TopBar::TopBar::quickBrushPanelRequested, this, [this] {
+        showDockPanel(m_quickBrushDock);
+    });
+    connect(topBar, &Ui::TopBar::TopBar::layersPanelRequested, this, [this] {
+        showDockPanel(m_layersDock);
+    });
     connect(topBar, &Ui::TopBar::TopBar::colorPickerRequested, this, [this] {
         if (!m_colorDock) return;
         if (!m_initialColorDockPositionApplied) {
@@ -96,6 +102,15 @@ void MainWindow::buildInterface()
     m_colorDock->hide();
     connect(m_colorPanel, &Ui::Color::ColorPanel::colorChanged,
             m_colorPicker, &Ui::Color::ColorPicker::selectColor);
+}
+
+void MainWindow::showDockPanel(Ui::Docking::SkinkDockPanel* dock)
+{
+    if (!dock) return;
+
+    dock->show();
+    dock->raise();
+    if (dock->isFloating()) dock->activateWindow();
 }
 
 void MainWindow::buildWorkspaceOverlays(QWidget* parent)

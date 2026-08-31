@@ -153,6 +153,8 @@ void ColorWheel::rebuildWheelImage()
 void ColorWheel::updateHueFromPosition(const QPointF& position)
 {
     const QPointF delta = position - wheelRect().center();
+    if (std::hypot(delta.x(), delta.y()) < 2.0) return;
+
     const qreal degrees = std::atan2(delta.y(), delta.x()) * 180.0 / kPi;
     setHue(static_cast<int>(std::round(std::fmod(degrees + 450.0, 360.0))) % 360);
 }

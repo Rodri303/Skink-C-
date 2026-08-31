@@ -74,6 +74,7 @@ TopBar::TopBar(QWidget* parent)
     auto* eraser = makeButton(right, QStringLiteral("▱"), "paintTool");
     auto* layers = makeButton(right, QStringLiteral("◇"), "paintTool");
     auto* color = makeButton(right, QString(), "colorTool");
+    color->setToolTip("Color");
     for (auto* button : {brush, eraser, layers, color}) button->setFixedSize(50, 46);
 
     auto* colorLayout = new QHBoxLayout(color);

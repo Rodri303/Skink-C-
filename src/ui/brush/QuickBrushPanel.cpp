@@ -42,7 +42,12 @@ QuickBrushPanel::QuickBrushPanel(QWidget* parent) : QFrame(parent)
         group->addButton(card, index);
         grid->addWidget(card, index / 2, index % 2);
     }
-    connect(group, &QButtonGroup::idClicked, this, [this, names](int index) { emit presetSelected(names[index]); });
+    for (int index = 0; index < 4; ++index) {
+        auto* card = group->button(index);
+        connect(card, &QPushButton::toggled, this, [this, names, index](bool checked) {
+            if (checked) emit presetSelected(names[index]);
+        });
+    }
     layout->addWidget(gridHost, 1);
 }
 

@@ -413,12 +413,12 @@ void MainWindow::applyStyle()
             font-size: 18px;
         }
 
-        #layerRow, #layerSelected {
+        #layerRow {
             background: #0e0f11;
             border-bottom: 1px solid #252629;
         }
 
-        #layerSelected {
+        #layerRow:checked {
             background: #14304f;
         }
 

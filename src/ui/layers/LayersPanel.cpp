@@ -1,5 +1,6 @@
 #include "ui/layers/LayersPanel.hpp"
 
+#include <QButtonGroup>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -16,10 +17,10 @@ QPushButton* makeButton(QWidget* parent, const QString& text, const char* object
     return button;
 }
 
-QWidget* makeRow(QWidget* parent, const QString& name, const QString& meta, bool selected, int index, LayersPanel* panel)
+QPushButton* makeRow(QWidget* parent, const QString& name, const QString& meta, bool selected, int index, LayersPanel* panel)
 {
     auto* row = new QPushButton(parent);
-    row->setObjectName(selected ? "layerSelected" : "layerRow");
+    row->setObjectName("layerRow");
     row->setCheckable(true);
     row->setChecked(selected);
     row->setFixedHeight(66);
@@ -47,7 +48,6 @@ QWidget* makeRow(QWidget* parent, const QString& name, const QString& meta, bool
     layout->addWidget(details);
     layout->addWidget(menu);
     QObject::connect(visibility, &QPushButton::toggled, panel, [panel, index](bool visible) { emit panel->visibilityToggled(index, visible); });
-    QObject::connect(row, &QPushButton::clicked, panel, [panel, index, row] { emit panel->layerSelected(index); row->setObjectName("layerSelected"); });
     return row;
 }
 
@@ -72,11 +72,16 @@ LayersPanel::LayersPanel(QWidget* parent) : QFrame(parent)
     headerLayout->addStretch();
     headerLayout->addWidget(add);
     layout->addWidget(header);
-    layout->addWidget(makeRow(this, "Capa 4", "100% N", true, 0, this));
-    layout->addWidget(makeRow(this, "Capa 3", "55% N", false, 1, this));
-    layout->addWidget(makeRow(this, "Capa 2", "100% N", false, 2, this));
-    layout->addWidget(makeRow(this, "Capa 1", "100% N", false, 3, this));
-    layout->addWidget(makeRow(this, "Fondo", "LOCK", false, 4, this));
+    auto* layerGroup = new QButtonGroup(this);
+    layerGroup->setExclusive(true);
+    const QString names[] = {"Capa 4", "Capa 3", "Capa 2", "Capa 1", "Fondo"};
+    const QString metadata[] = {"100% N", "55% N", "100% N", "100% N", "LOCK"};
+    for (int index = 0; index < 5; ++index) {
+        auto* row = makeRow(this, names[index], metadata[index], index == 0, index, this);
+        layerGroup->addButton(row, index);
+        layout->addWidget(row);
+    }
+    connect(layerGroup, &QButtonGroup::idClicked, this, &LayersPanel::layerSelected);
     connect(add, &QPushButton::clicked, this, &LayersPanel::addLayerRequested);
 }
 

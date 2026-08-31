@@ -6,7 +6,10 @@ class QCloseEvent;
 class QWidget;
 
 namespace Skink::Core::Canvas { class CanvasWidget; }
+namespace Skink::Core::Tools { class ToolController; }
 namespace Skink::Ui::Workspace { class WorkspaceWidget; }
+namespace Skink::Ui::Input { class ShortcutRouter; }
+namespace Skink::Ui::TopBar { class TopBar; }
 namespace Skink::Ui::ToolRail { class ToolRail; }
 namespace Skink::Ui::Brush { class BrushControls; }
 namespace Skink::Ui::Bottom { class BottomDock; }
@@ -32,7 +35,10 @@ private:
     void applyStyle();
 
     Core::Canvas::CanvasWidget* m_canvas{nullptr};
+    Core::Tools::ToolController* m_toolController{nullptr};
     Ui::Workspace::WorkspaceWidget* m_workspace{nullptr};
+    Ui::Input::ShortcutRouter* m_shortcutRouter{nullptr};
+    Ui::TopBar::TopBar* m_topBar{nullptr};
     Ui::ToolRail::ToolRail* m_toolStrip{nullptr};
     Ui::Brush::BrushControls* m_leftControls{nullptr};
     Ui::Bottom::BottomDock* m_bottomDock{nullptr};

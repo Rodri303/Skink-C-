@@ -1,6 +1,8 @@
 #include "app/MainWindow.hpp"
 
 #include "core/canvas/CanvasWidget.hpp"
+#include "core/tools/ToolController.hpp"
+#include "ui/input/ShortcutRouter.hpp"
 #include "ui/workspace/WorkspaceWidget.hpp"
 #include "ui/workspace/WorkspacePersistence.hpp"
 #include "ui/topbar/TopBar.hpp"
@@ -17,6 +19,8 @@
 #include <QShowEvent>
 #include <QVBoxLayout>
 #include <QWidget>
+
+#include <algorithm>
 
 namespace Skink::App {
 
@@ -40,20 +44,27 @@ void MainWindow::buildInterface()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
 
-    auto* topBar = new Ui::TopBar::TopBar(root);
+    m_toolController = new Core::Tools::ToolController(this);
+    m_topBar = new Ui::TopBar::TopBar(root);
     m_colorPicker = new Ui::Color::ColorPicker(this);
-    topBar->setActiveColor(m_colorPicker->currentColor());
-    layout->addWidget(topBar);
+    m_topBar->setActiveColor(m_colorPicker->currentColor());
+    layout->addWidget(m_topBar);
 
-    connect(topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
-    connect(topBar, &Ui::TopBar::TopBar::redoRequested, this, [this] { if (m_canvas) m_canvas->redo(); });
-    connect(topBar, &Ui::TopBar::TopBar::quickBrushPanelRequested, this, [this] {
+    connect(m_topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
+    connect(m_topBar, &Ui::TopBar::TopBar::redoRequested, this, [this] { if (m_canvas) m_canvas->redo(); });
+    connect(m_topBar, &Ui::TopBar::TopBar::brushRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Brush);
+    });
+    connect(m_topBar, &Ui::TopBar::TopBar::eraserRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Eraser);
+    });
+    connect(m_topBar, &Ui::TopBar::TopBar::quickBrushPanelRequested, this, [this] {
         showDockPanel(m_quickBrushDock);
     });
-    connect(topBar, &Ui::TopBar::TopBar::layersPanelRequested, this, [this] {
+    connect(m_topBar, &Ui::TopBar::TopBar::layersPanelRequested, this, [this] {
         showDockPanel(m_layersDock);
     });
-    connect(topBar, &Ui::TopBar::TopBar::colorPickerRequested, this, [this] {
+    connect(m_topBar, &Ui::TopBar::TopBar::colorPickerRequested, this, [this] {
         if (!m_colorDock) return;
         if (!m_initialColorDockPositionApplied) {
             // Provisional placement: SWINK had no custom color panel geometry.
@@ -65,11 +76,14 @@ void MainWindow::buildInterface()
         m_colorDock->raise();
         if (m_colorDock->isFloating()) m_colorDock->activateWindow();
     });
-    connect(m_colorPicker, &Ui::Color::ColorPicker::colorSelected, this, [this, topBar](const QColor& color) {
+    connect(m_colorPicker, &Ui::Color::ColorPicker::colorSelected, this, [this](const QColor& color) {
         if (m_canvas) m_canvas->setBrushColor(color);
         if (m_colorPanel) m_colorPanel->setColor(color);
-        topBar->setActiveColor(color);
+        m_topBar->setActiveColor(color);
     });
+    connect(m_toolController, &Core::Tools::ToolController::activeToolChanged,
+            m_topBar, &Ui::TopBar::TopBar::setActiveTool);
+    m_topBar->setActiveTool(m_toolController->activeTool());
 
     m_workspace = new Ui::Workspace::WorkspaceWidget(root);
     layout->addWidget(m_workspace, 1);
@@ -78,6 +92,9 @@ void MainWindow::buildInterface()
     m_canvas->setObjectName("canvasShell");
     m_workspace->setCanvas(m_canvas);
     m_canvas->show();
+    connect(m_toolController, &Core::Tools::ToolController::activeToolChanged,
+            m_canvas, &Core::Canvas::CanvasWidget::setActiveTool);
+    m_canvas->setActiveTool(m_toolController->activeTool());
 
     buildWorkspaceOverlays(m_workspace);
 
@@ -102,6 +119,27 @@ void MainWindow::buildInterface()
     m_colorDock->hide();
     connect(m_colorPanel, &Ui::Color::ColorPanel::colorChanged,
             m_colorPicker, &Ui::Color::ColorPicker::selectColor);
+
+    m_shortcutRouter = new Ui::Input::ShortcutRouter(this);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::brushRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Brush);
+    });
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::eraserRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Eraser);
+    });
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::resetViewRequested,
+            m_canvas, &Core::Canvas::CanvasWidget::resetView);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::temporaryPanChanged,
+            m_canvas, &Core::Canvas::CanvasWidget::setTemporaryPan);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::undoRequested,
+            m_canvas, &Core::Canvas::CanvasWidget::undo);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::redoRequested,
+            m_canvas, &Core::Canvas::CanvasWidget::redo);
+    connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::brushSizeStepRequested,
+            this, [this](int delta) {
+                const int nextSize = std::clamp(m_leftControls->brushSize() + delta, 1, 160);
+                m_leftControls->setBrushSize(nextSize);
+            });
 }
 
 void MainWindow::showDockPanel(Ui::Docking::SkinkDockPanel* dock)
@@ -116,6 +154,21 @@ void MainWindow::showDockPanel(Ui::Docking::SkinkDockPanel* dock)
 void MainWindow::buildWorkspaceOverlays(QWidget* parent)
 {
     m_toolStrip = new Ui::ToolRail::ToolRail(parent);
+    connect(m_toolStrip, &Ui::ToolRail::ToolRail::brushRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Brush);
+    });
+    connect(m_toolStrip, &Ui::ToolRail::ToolRail::selectionRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Selection);
+    });
+    connect(m_toolStrip, &Ui::ToolRail::ToolRail::panRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Pan);
+    });
+    connect(m_toolStrip, &Ui::ToolRail::ToolRail::transformRequested, this, [this] {
+        m_toolController->setActiveTool(Core::Tools::Tool::Transform);
+    });
+    connect(m_toolController, &Core::Tools::ToolController::activeToolChanged,
+            m_toolStrip, &Ui::ToolRail::ToolRail::setActiveTool);
+    m_toolStrip->setActiveTool(m_toolController->activeTool());
 
     m_leftControls = new Ui::Brush::BrushControls(parent);
     connect(m_leftControls, &Ui::Brush::BrushControls::brushSizeChanged, this, [this](int value) {
@@ -125,6 +178,9 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
 
     auto* layersPanel = new Ui::Layers::LayersPanel(this);
     auto* quickBrushPanel = new Ui::Brush::QuickBrushPanel(this);
+    connect(quickBrushPanel, &Ui::Brush::QuickBrushPanel::presetSelected, this, [this](const QString&) {
+        m_toolController->setActiveTool(Core::Tools::Tool::Brush);
+    });
     m_layersDock = new Ui::Docking::SkinkDockPanel("CAPAS", layersPanel, this);
     m_quickBrushDock = new Ui::Docking::SkinkDockPanel("PINCEL RAPIDO", quickBrushPanel, this);
     m_layersDock->setObjectName("LayersDock");
@@ -243,7 +299,7 @@ void MainWindow::applyStyle()
             font-size: 10px;
         }
 
-        #paintTool, #paintToolActive, #colorTool {
+        #paintTool, #colorTool {
             border: 0;
             border-radius: 13px;
             background: transparent;
@@ -251,11 +307,11 @@ void MainWindow::applyStyle()
             font-size: 24px;
         }
 
-        #paintTool:hover, #paintToolActive, #colorTool:hover {
+        #paintTool:hover, #paintTool[activeTool="true"], #colorTool:hover {
             background: #1d1f22;
         }
 
-        #paintToolActive {
+        #paintTool[activeTool="true"] {
             border-bottom: 2px solid #1688ff;
         }
 
@@ -280,7 +336,7 @@ void MainWindow::applyStyle()
             border-radius: 15px;
         }
 
-        #stripButton, #stripButtonActive {
+        #stripButton {
             border: 0;
             border-radius: 8px;
             background: transparent;
@@ -292,7 +348,7 @@ void MainWindow::applyStyle()
             background: #1d1f22;
         }
 
-        #stripButtonActive {
+        #stripButton[activeTool="true"] {
             color: #1688ff;
         }
 

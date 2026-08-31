@@ -38,9 +38,42 @@ void CanvasWidget::setBrushSize(qreal size)
 void CanvasWidget::setBrushColor(const QColor& color)
 {
     if (!color.isValid()) return;
+
+    m_brushColor = color;
+    if (m_activeTool == Tools::Tool::Eraser) return;
+
     auto settings = m_brush.settings();
     settings.color = color;
     m_brush.setSettings(settings);
+}
+
+void CanvasWidget::setActiveTool(Tools::Tool tool)
+{
+    if (m_activeTool == tool) return;
+    if (m_drawing) endStroke();
+
+    m_activeTool = tool;
+    auto settings = m_brush.settings();
+    if (m_activeTool == Tools::Tool::Eraser) {
+        m_brushOpacity = settings.opacity;
+        settings.color = Qt::white;
+        settings.opacity = 1.0;
+    } else {
+        settings.color = m_brushColor;
+        settings.opacity = m_brushOpacity;
+    }
+    m_brush.setSettings(settings);
+    updateNavigationCursor();
+}
+
+void CanvasWidget::setTemporaryPan(bool active)
+{
+    if (m_temporaryPan == active) return;
+
+    m_temporaryPan = active;
+    if (m_temporaryPan && m_drawing) endStroke();
+    if (!m_temporaryPan && m_panning && m_panRequiresTemporary) endPan();
+    updateNavigationCursor();
 }
 
 void CanvasWidget::clearCanvas()
@@ -114,15 +147,14 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
 {
     setFocus(Qt::MouseFocusReason);
 
-    if (event->button() == Qt::MiddleButton) {
-        m_panning = true;
-        m_lastPanPosition = event->position();
-        setCursor(Qt::ClosedHandCursor);
+    if (event->button() == Qt::MiddleButton
+        || (event->button() == Qt::LeftButton && navigationPanActive())) {
+        beginPan(event->position(), event->button(), false);
         event->accept();
         return;
     }
 
-    if (event->button() == Qt::LeftButton) {
+    if (event->button() == Qt::LeftButton && drawingToolActive()) {
         const auto documentPosition = mapToDocument(event->position());
         if (documentPosition && isInsideDocument(*documentPosition)) {
             beginStroke({*documentPosition, 1.0, 0.0, 0.0, 0.0, 0.0, event->timestamp()});
@@ -136,11 +168,8 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
 
 void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 {
-    if (m_panning && (event->buttons() & Qt::MiddleButton)) {
-        const QPointF delta = event->position() - m_lastPanPosition;
-        m_pan += delta;
-        m_lastPanPosition = event->position();
-        update();
+    if (m_panning && !m_tabletPanning && (event->buttons() & m_panButton)) {
+        updatePan(event->position());
         event->accept();
         return;
     }
@@ -159,9 +188,8 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 
 void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::MiddleButton && m_panning) {
-        m_panning = false;
-        setCursor(Qt::CrossCursor);
+    if (m_panning && !m_tabletPanning && event->button() == m_panButton) {
+        endPan();
         event->accept();
         return;
     }
@@ -186,17 +214,23 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
 
     switch (event->type()) {
     case QEvent::TabletPress:
-        if (documentPosition && isInsideDocument(*documentPosition)) {
+        if (navigationPanActive()) {
+            beginPan(event->position(), Qt::NoButton, true);
+        } else if (drawingToolActive() && documentPosition && isInsideDocument(*documentPosition)) {
             beginStroke(tabletSample(*event, *documentPosition));
         }
         break;
     case QEvent::TabletMove:
-        if (m_drawing && documentPosition) {
+        if (m_panning && m_tabletPanning) {
+            updatePan(event->position());
+        } else if (m_drawing && documentPosition) {
             continueStroke(tabletSample(*event, *documentPosition));
         }
         break;
     case QEvent::TabletRelease:
-        if (m_drawing) {
+        if (m_panning && m_tabletPanning) {
+            endPan();
+        } else if (m_drawing) {
             if (documentPosition && event->pressure() > 0.0) {
                 continueStroke(tabletSample(*event, *documentPosition));
             }
@@ -208,6 +242,53 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
     }
 
     event->accept();
+}
+
+bool CanvasWidget::drawingToolActive() const noexcept
+{
+    return m_activeTool == Tools::Tool::Brush || m_activeTool == Tools::Tool::Eraser;
+}
+
+bool CanvasWidget::navigationPanActive() const noexcept
+{
+    return m_activeTool == Tools::Tool::Pan || m_temporaryPan;
+}
+
+void CanvasWidget::beginPan(const QPointF& position, Qt::MouseButton mouseButton, bool tablet)
+{
+    m_panning = true;
+    m_tabletPanning = tablet;
+    m_panButton = mouseButton;
+    m_panRequiresTemporary = m_temporaryPan && m_activeTool != Tools::Tool::Pan;
+    m_lastPanPosition = position;
+    updateNavigationCursor();
+}
+
+void CanvasWidget::updatePan(const QPointF& position)
+{
+    m_pan += position - m_lastPanPosition;
+    m_lastPanPosition = position;
+    update();
+}
+
+void CanvasWidget::endPan()
+{
+    m_panning = false;
+    m_tabletPanning = false;
+    m_panRequiresTemporary = false;
+    m_panButton = Qt::NoButton;
+    updateNavigationCursor();
+}
+
+void CanvasWidget::updateNavigationCursor()
+{
+    if (m_panning) {
+        setCursor(Qt::ClosedHandCursor);
+    } else if (navigationPanActive()) {
+        setCursor(Qt::OpenHandCursor);
+    } else {
+        setCursor(Qt::CrossCursor);
+    }
 }
 
 void CanvasWidget::wheelEvent(QWheelEvent* event)

@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QStyle>
 
 namespace Skink::Ui::TopBar {
 
@@ -16,6 +17,13 @@ QPushButton* makeButton(QWidget* parent, const QString& text, const char* object
     button->setObjectName(objectName);
     button->setCursor(Qt::PointingHandCursor);
     return button;
+}
+
+void setActiveProperty(QPushButton* button, bool active)
+{
+    button->setProperty("activeTool", active);
+    button->style()->unpolish(button);
+    button->style()->polish(button);
 }
 }
 
@@ -76,6 +84,9 @@ TopBar::TopBar(QWidget* parent)
     auto* color = makeButton(right, QString(), "colorTool");
     color->setToolTip("Color");
     for (auto* button : {brush, eraser, layers, color}) button->setFixedSize(50, 46);
+    brush->setObjectName("paintTool");
+    m_brushButton = brush;
+    m_eraserButton = eraser;
 
     auto* colorLayout = new QHBoxLayout(color);
     colorLayout->setContentsMargins(0, 0, 0, 0);
@@ -97,9 +108,14 @@ TopBar::TopBar(QWidget* parent)
 
     connect(undo, &QPushButton::clicked, this, &TopBar::undoRequested);
     connect(redo, &QPushButton::clicked, this, &TopBar::redoRequested);
-    connect(brush, &QPushButton::clicked, this, &TopBar::quickBrushPanelRequested);
+    connect(brush, &QPushButton::clicked, this, &TopBar::brushRequested);
+    connect(eraser, &QPushButton::clicked, this, &TopBar::eraserRequested);
+    // Provisional access until the full Settings menu owns panel visibility.
+    connect(settings, &QPushButton::clicked, this, &TopBar::quickBrushPanelRequested);
     connect(layers, &QPushButton::clicked, this, &TopBar::layersPanelRequested);
     connect(color, &QPushButton::clicked, this, &TopBar::colorPickerRequested);
+
+    setActiveTool(Core::Tools::Tool::Brush);
 }
 
 void TopBar::setActiveColor(const QColor& color)
@@ -109,6 +125,12 @@ void TopBar::setActiveColor(const QColor& color)
     m_colorIndicator->setStyleSheet(QString(
         "background-color: %1; border: 2px solid white; border-radius: 17px;")
         .arg(color.name(QColor::HexRgb)));
+}
+
+void TopBar::setActiveTool(Core::Tools::Tool tool)
+{
+    setActiveProperty(m_brushButton, tool == Core::Tools::Tool::Brush);
+    setActiveProperty(m_eraserButton, tool == Core::Tools::Tool::Eraser);
 }
 
 } // namespace Skink::Ui::TopBar

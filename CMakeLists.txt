@@ -28,6 +28,10 @@ qt_add_executable(Skink
     src/core/history/HistoryManager.hpp
     src/core/stroke/StrokeEngine.cpp
     src/core/stroke/StrokeEngine.hpp
+    src/core/tools/ToolController.cpp
+    src/core/tools/ToolController.hpp
+    src/ui/input/ShortcutRouter.cpp
+    src/ui/input/ShortcutRouter.hpp
     src/ui/panels/DraggablePanel.cpp
     src/ui/panels/DraggablePanel.hpp
     src/ui/widgets/ToolButton.cpp

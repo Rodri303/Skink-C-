@@ -46,6 +46,8 @@ qt_add_executable(Skink
     src/ui/layers/LayersPanel.hpp
     src/ui/docking/SkinkDockPanel.cpp
     src/ui/docking/SkinkDockPanel.hpp
+    src/ui/bottom/BottomDock.cpp
+    src/ui/bottom/BottomDock.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

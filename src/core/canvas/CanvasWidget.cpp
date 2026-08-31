@@ -75,6 +75,23 @@ void CanvasWidget::resetView()
     update();
 }
 
+void CanvasWidget::zoomIn()
+{
+    m_zoom = std::clamp(m_zoom * 1.1, 0.1, 8.0);
+    update();
+}
+
+void CanvasWidget::zoomOut()
+{
+    m_zoom = std::clamp(m_zoom / 1.1, 0.1, 8.0);
+    update();
+}
+
+int CanvasWidget::zoomPercent() const
+{
+    return qRound(m_zoom * 100.0);
+}
+
 void CanvasWidget::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);

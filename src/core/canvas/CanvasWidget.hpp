@@ -25,6 +25,9 @@ public:
     void undo();
     void redo();
     void resetView();
+    void zoomIn();
+    void zoomOut();
+    [[nodiscard]] int zoomPercent() const;
 
 protected:
     void paintEvent(QPaintEvent* event) override;

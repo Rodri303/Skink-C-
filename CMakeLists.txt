@@ -52,6 +52,10 @@ qt_add_executable(Skink
     src/ui/hud/CanvasHud.hpp
     src/ui/color/ColorPicker.cpp
     src/ui/color/ColorPicker.hpp
+    src/ui/color/ColorPanel.cpp
+    src/ui/color/ColorPanel.hpp
+    src/ui/color/ColorWheel.cpp
+    src/ui/color/ColorWheel.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

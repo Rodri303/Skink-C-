@@ -23,6 +23,18 @@ void ColorPicker::setCurrentColor(const QColor& color)
     m_currentColor.setAlpha(255);
 }
 
+void ColorPicker::selectColor(const QColor& color)
+{
+    if (!color.isValid()) return;
+
+    QColor selectedColor = color.toRgb();
+    selectedColor.setAlpha(255);
+    if (selectedColor == m_currentColor) return;
+
+    m_currentColor = selectedColor;
+    emit colorSelected(m_currentColor);
+}
+
 void ColorPicker::open(QWidget* parent)
 {
     QColorDialog dialog(m_currentColor, parent);
@@ -34,10 +46,7 @@ void ColorPicker::open(QWidget* parent)
     QColor selectedColor = dialog.selectedColor();
     if (!selectedColor.isValid()) return;
 
-    selectedColor = selectedColor.toRgb();
-    selectedColor.setAlpha(255);
-    m_currentColor = selectedColor;
-    emit colorSelected(m_currentColor);
+    selectColor(selectedColor);
 }
 
 } // namespace Skink::Ui::Color

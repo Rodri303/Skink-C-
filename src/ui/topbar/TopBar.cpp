@@ -68,7 +68,7 @@ TopBar::TopBar(QWidget* parent)
     auto* right = new QWidget(this);
     auto* rightLayout = new QHBoxLayout(right);
     rightLayout->setContentsMargins(0, 0, 0, 0);
-    rightLayout->setSpacing(6);
+    rightLayout->setSpacing(8);
     rightLayout->addStretch();
     auto* brush = makeButton(right, QStringLiteral("╱"), "paintToolActive");
     auto* eraser = makeButton(right, QStringLiteral("▱"), "paintTool");

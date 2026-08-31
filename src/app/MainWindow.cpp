@@ -7,6 +7,7 @@
 #include "ui/brush/BrushControls.hpp"
 #include "ui/brush/QuickBrushPanel.hpp"
 #include "ui/bottom/BottomDock.hpp"
+#include "ui/color/ColorPanel.hpp"
 #include "ui/color/ColorPicker.hpp"
 #include "ui/layers/LayersPanel.hpp"
 #include "ui/docking/SkinkDockPanel.hpp"
@@ -44,10 +45,20 @@ void MainWindow::buildInterface()
     connect(topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
     connect(topBar, &Ui::TopBar::TopBar::redoRequested, this, [this] { if (m_canvas) m_canvas->redo(); });
     connect(topBar, &Ui::TopBar::TopBar::colorPickerRequested, this, [this] {
-        m_colorPicker->open(this);
+        if (!m_colorDock) return;
+        if (!m_initialColorDockPositionApplied) {
+            // Provisional placement: SWINK had no custom color panel geometry.
+            const QPoint localPosition(width() - m_colorDock->width() - 370, 70);
+            m_colorDock->move(mapToGlobal(localPosition));
+            m_initialColorDockPositionApplied = true;
+        }
+        m_colorDock->show();
+        m_colorDock->raise();
+        if (m_colorDock->isFloating()) m_colorDock->activateWindow();
     });
     connect(m_colorPicker, &Ui::Color::ColorPicker::colorSelected, this, [this, topBar](const QColor& color) {
         if (m_canvas) m_canvas->setBrushColor(color);
+        if (m_colorPanel) m_colorPanel->setColor(color);
         topBar->setActiveColor(color);
     });
 
@@ -71,6 +82,17 @@ void MainWindow::buildInterface()
     layout->addWidget(m_bottomDock);
 
     setCentralWidget(root);
+
+    m_colorPanel = new Ui::Color::ColorPanel(this);
+    m_colorPanel->setColor(m_colorPicker->currentColor());
+    m_colorDock = new Ui::Docking::SkinkDockPanel("COLOR", m_colorPanel, this);
+    m_colorDock->setFeatures(m_colorDock->features() | QDockWidget::DockWidgetClosable);
+    addDockWidget(Qt::RightDockWidgetArea, m_colorDock);
+    m_colorDock->setFloating(true);
+    m_colorDock->resize(300, 450);
+    m_colorDock->hide();
+    connect(m_colorPanel, &Ui::Color::ColorPanel::colorChanged,
+            m_colorPicker, &Ui::Color::ColorPicker::selectColor);
 }
 
 void MainWindow::buildWorkspaceOverlays(QWidget* parent)

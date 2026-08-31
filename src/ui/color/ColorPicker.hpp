@@ -15,6 +15,7 @@ public:
 
     [[nodiscard]] QColor currentColor() const;
     void setCurrentColor(const QColor& color);
+    void selectColor(const QColor& color);
     void open(QWidget* parent);
 
 signals:

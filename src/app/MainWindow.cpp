@@ -6,89 +6,15 @@
 #include "ui/toolrail/ToolRail.hpp"
 #include "ui/brush/BrushControls.hpp"
 #include "ui/brush/QuickBrushPanel.hpp"
+#include "ui/bottom/BottomDock.hpp"
 #include "ui/layers/LayersPanel.hpp"
 #include "ui/docking/SkinkDockPanel.hpp"
 
-#include <QComboBox>
-#include <QFrame>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QPushButton>
-#include <QSlider>
 #include <QShowEvent>
 #include <QVBoxLayout>
 #include <QWidget>
 
 namespace Skink::App {
-
-namespace {
-
-QPushButton* makeButton(QWidget* parent, const QString& text, const char* objectName)
-{
-    auto* button = new QPushButton(text, parent);
-    button->setObjectName(objectName);
-    button->setCursor(Qt::PointingHandCursor);
-    return button;
-}
-
-QLabel* makeLabel(QWidget* parent, const QString& text, const char* objectName = nullptr)
-{
-    auto* label = new QLabel(text, parent);
-    if (objectName) label->setObjectName(objectName);
-    return label;
-}
-
-QWidget* makeControlBlock(
-    QWidget* parent,
-    const QString& title,
-    const QString& subtitle,
-    const QString& initialOutput,
-    QSlider** sliderOut,
-    int minimum,
-    int maximum,
-    int value)
-{
-    auto* block = new QWidget(parent);
-    block->setObjectName("controlBlock");
-    auto* row = new QHBoxLayout(block);
-    row->setContentsMargins(0, 0, 0, 0);
-    row->setSpacing(16);
-
-    auto* sliderFrame = new QFrame(block);
-    sliderFrame->setObjectName("sliderColumn");
-    sliderFrame->setFixedSize(50, 120);
-    auto* sliderLayout = new QVBoxLayout(sliderFrame);
-    sliderLayout->setContentsMargins(14, 10, 14, 10);
-
-    auto* slider = new QSlider(Qt::Vertical, sliderFrame);
-    slider->setRange(minimum, maximum);
-    slider->setValue(value);
-    sliderLayout->addWidget(slider, 1, Qt::AlignCenter);
-
-    auto* copy = new QWidget(block);
-    copy->setObjectName("controlCopy");
-    auto* copyLayout = new QVBoxLayout(copy);
-    copyLayout->setContentsMargins(0, 12, 0, 0);
-    copyLayout->setSpacing(4);
-
-    auto* titleLabel = makeLabel(copy, title, "controlTitle");
-    auto* subLabel = makeLabel(copy, subtitle, "controlSubtitle");
-    subLabel->setWordWrap(true);
-    auto* output = makeLabel(copy, initialOutput, "controlOutput");
-
-    copyLayout->addWidget(titleLabel);
-    copyLayout->addWidget(subLabel);
-    copyLayout->addWidget(output);
-    copyLayout->addStretch(1);
-
-    row->addWidget(sliderFrame);
-    row->addWidget(copy, 1);
-
-    if (sliderOut) *sliderOut = slider;
-    return block;
-}
-
-} // namespace
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -126,11 +52,13 @@ void MainWindow::buildInterface()
 
     buildWorkspaceOverlays(m_workspace);
 
-    auto* bottomBar = new QWidget(root);
-    bottomBar->setObjectName("bottomBar");
-    bottomBar->setFixedHeight(72);
-    buildBottomBar(bottomBar);
-    layout->addWidget(bottomBar);
+    m_bottomDock = new Ui::Bottom::BottomDock(root);
+    m_bottomDock->setZoomPercent(m_canvas->zoomPercent());
+    connect(m_bottomDock, &Ui::Bottom::BottomDock::zoomInRequested, m_canvas, &Core::Canvas::CanvasWidget::zoomIn);
+    connect(m_bottomDock, &Ui::Bottom::BottomDock::zoomOutRequested, m_canvas, &Core::Canvas::CanvasWidget::zoomOut);
+    connect(m_bottomDock, &Ui::Bottom::BottomDock::resetViewRequested, m_canvas, &Core::Canvas::CanvasWidget::resetView);
+    connect(m_canvas, &Core::Canvas::CanvasWidget::zoomChanged, m_bottomDock, &Ui::Bottom::BottomDock::setZoomPercent);
+    layout->addWidget(m_bottomDock);
 
     setCentralWidget(root);
 }
@@ -169,63 +97,6 @@ void MainWindow::showEvent(QShowEvent* event)
     };
     placeDock(m_layersDock, 30);
     placeDock(m_quickBrushDock, 485);
-}
-
-void MainWindow::buildBottomBar(QWidget* parent)
-{
-    auto* layout = new QHBoxLayout(parent);
-    layout->setContentsMargins(20, 0, 20, 0);
-    layout->setSpacing(14);
-
-    auto* recordDot = new QLabel(parent);
-    recordDot->setObjectName("recordDot");
-    recordDot->setFixedSize(14, 14);
-    layout->addWidget(recordDot);
-    layout->addWidget(makeLabel(parent, "GRABANDO", "bottomStrong"));
-    layout->addWidget(makeLabel(parent, "00:00:00", "bottomText"));
-    layout->addWidget(makeLabel(parent, QStringLiteral("⌄"), "bottomText"));
-
-    layout->addStretch(1);
-
-    auto* processWrap = new QWidget(parent);
-    auto* processLayout = new QHBoxLayout(processWrap);
-    processLayout->setContentsMargins(0, 0, 0, 0);
-    processLayout->setSpacing(10);
-
-    auto* durationWrap = new QWidget(processWrap);
-    auto* durationLayout = new QVBoxLayout(durationWrap);
-    durationLayout->setContentsMargins(0, 0, 0, 0);
-    durationLayout->setSpacing(1);
-    durationLayout->addWidget(makeLabel(durationWrap, "PROCESO", "processCaption"));
-    auto* duration = new QComboBox(durationWrap);
-    duration->setObjectName("processSelect");
-    duration->addItems({"30 seg", "1 min", "3 min", "5 min"});
-    duration->setCurrentText("3 min");
-    durationLayout->addWidget(duration);
-
-    processLayout->addWidget(durationWrap);
-    processLayout->addWidget(makeButton(processWrap, QStringLiteral("▶  VISTA PREVIA"), "bottomButton"));
-    processLayout->addWidget(makeButton(processWrap, QStringLiteral("■  DETENER"), "bottomButton"));
-    processLayout->addWidget(makeButton(processWrap, "GUARDAR PNG", "bottomButton"));
-    layout->addWidget(processWrap);
-
-    layout->addStretch(1);
-
-    auto* zoom = new QWidget(parent);
-    zoom->setObjectName("zoomReadout");
-    auto* zoomLayout = new QHBoxLayout(zoom);
-    zoomLayout->setContentsMargins(8, 0, 8, 0);
-    zoomLayout->setSpacing(8);
-    zoomLayout->addWidget(makeButton(zoom, QStringLiteral("−"), "zoomButton"));
-    zoomLayout->addWidget(makeLabel(zoom, "100%", "bottomText"));
-    zoomLayout->addWidget(makeButton(zoom, QStringLiteral("＋"), "zoomButton"));
-    layout->addWidget(zoom);
-
-    auto* center = makeButton(parent, "C   CENTRAR", "bottomButton");
-    layout->addWidget(center);
-    layout->addWidget(makeButton(parent, QStringLiteral("⌄"), "squareBottomButton"));
-
-    connect(center, &QPushButton::clicked, this, [this] { if (m_canvas) m_canvas->resetView(); });
 }
 
 void MainWindow::applyStyle()

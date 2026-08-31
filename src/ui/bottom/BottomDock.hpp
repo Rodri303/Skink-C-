@@ -2,6 +2,8 @@
 
 #include <QWidget>
 
+class QLabel;
+
 namespace Skink::Ui::Bottom {
 
 class BottomDock final : public QWidget {
@@ -9,6 +11,7 @@ class BottomDock final : public QWidget {
 
 public:
     explicit BottomDock(QWidget* parent = nullptr);
+    void setZoomPercent(int percent);
 
 signals:
     void zoomInRequested();
@@ -18,6 +21,9 @@ signals:
     void stopRequested();
     void savePsdRequested();
     void processDurationChanged(int seconds);
+
+private:
+    QLabel* m_zoomPercent{nullptr};
 };
 
 } // namespace Skink::Ui::Bottom

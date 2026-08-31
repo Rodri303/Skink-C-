@@ -58,6 +58,7 @@ void MainWindow::buildInterface()
     connect(m_bottomDock, &Ui::Bottom::BottomDock::zoomOutRequested, m_canvas, &Core::Canvas::CanvasWidget::zoomOut);
     connect(m_bottomDock, &Ui::Bottom::BottomDock::resetViewRequested, m_canvas, &Core::Canvas::CanvasWidget::resetView);
     connect(m_canvas, &Core::Canvas::CanvasWidget::zoomChanged, m_bottomDock, &Ui::Bottom::BottomDock::setZoomPercent);
+    connect(m_canvas, &Core::Canvas::CanvasWidget::zoomChanged, m_workspace, &Ui::Workspace::WorkspaceWidget::showZoomHud);
     layout->addWidget(m_bottomDock);
 
     setCentralWidget(root);
@@ -70,6 +71,7 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     m_leftControls = new Ui::Brush::BrushControls(parent);
     connect(m_leftControls, &Ui::Brush::BrushControls::brushSizeChanged, this, [this](int value) {
         if (m_canvas) m_canvas->setBrushSize(value);
+        if (m_workspace) m_workspace->showBrushSizeHud(value);
     });
 
     auto* layersPanel = new Ui::Layers::LayersPanel(this);

@@ -1,6 +1,7 @@
 #include "ui/workspace/WorkspaceWidget.hpp"
 
 #include "core/canvas/CanvasWidget.hpp"
+#include "ui/hud/CanvasHud.hpp"
 
 #include <QResizeEvent>
 #include <QShowEvent>
@@ -13,6 +14,7 @@ namespace {
 constexpr int kOverlayMargin = 18;
 constexpr int kToolRailTop = 52;
 constexpr int kControlsTop = 232;
+constexpr int kHudTop = 16;
 }
 
 WorkspaceWidget::WorkspaceWidget(QWidget* parent)
@@ -20,6 +22,7 @@ WorkspaceWidget::WorkspaceWidget(QWidget* parent)
 {
     setObjectName("workspace");
     setMinimumHeight(500);
+    m_canvasHud = new Hud::CanvasHud(this);
 }
 
 void WorkspaceWidget::setCanvas(Core::Canvas::CanvasWidget* canvas)
@@ -32,6 +35,18 @@ void WorkspaceWidget::setLeftOverlays(QWidget* toolRail, QWidget* brushControls)
 {
     m_toolRail = toolRail;
     m_brushControls = brushControls;
+    updateOverlayGeometry();
+}
+
+void WorkspaceWidget::showZoomHud(int percent)
+{
+    m_canvasHud->showMessage(QStringLiteral("%1%").arg(percent));
+    updateOverlayGeometry();
+}
+
+void WorkspaceWidget::showBrushSizeHud(int size)
+{
+    m_canvasHud->showMessage(QStringLiteral("TAMAÑO %1").arg(size));
     updateOverlayGeometry();
 }
 
@@ -52,15 +67,15 @@ void WorkspaceWidget::updateOverlayGeometry()
     if (m_canvas) m_canvas->setGeometry(rect());
     if (m_toolRail) m_toolRail->move(kOverlayMargin, kToolRailTop);
     if (m_brushControls) m_brushControls->move(kOverlayMargin, kControlsTop);
-
-    const auto rightAlignedX = [this](const QWidget* overlay) {
-        return std::max(kOverlayMargin, width() - overlay->width() - kOverlayMargin);
-    };
+    if (m_canvasHud) {
+        const int centeredX = std::max(0, (width() - m_canvasHud->width()) / 2);
+        m_canvasHud->move(centeredX, kHudTop);
+    }
 
     if (m_canvas) m_canvas->lower();
-    for (QWidget* overlay : {m_toolRail, m_brushControls}) {
-        if (overlay) overlay->raise();
-    }
+    if (m_toolRail) m_toolRail->raise();
+    if (m_brushControls) m_brushControls->raise();
+    if (m_canvasHud) m_canvasHud->raise();
 }
 
 } // namespace Skink::Ui::Workspace

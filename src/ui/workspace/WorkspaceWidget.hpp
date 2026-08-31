@@ -3,6 +3,7 @@
 #include <QWidget>
 
 namespace Skink::Core::Canvas { class CanvasWidget; }
+namespace Skink::Ui::Hud { class CanvasHud; }
 
 namespace Skink::Ui::Workspace {
 
@@ -14,6 +15,8 @@ public:
 
     void setCanvas(Core::Canvas::CanvasWidget* canvas);
     void setLeftOverlays(QWidget* toolRail, QWidget* brushControls);
+    void showZoomHud(int percent);
+    void showBrushSizeHud(int size);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -25,6 +28,7 @@ private:
     Core::Canvas::CanvasWidget* m_canvas{nullptr};
     QWidget* m_toolRail{nullptr};
     QWidget* m_brushControls{nullptr};
+    Hud::CanvasHud* m_canvasHud{nullptr};
 };
 
 } // namespace Skink::Ui::Workspace

@@ -48,6 +48,8 @@ qt_add_executable(Skink
     src/ui/docking/SkinkDockPanel.hpp
     src/ui/bottom/BottomDock.cpp
     src/ui/bottom/BottomDock.hpp
+    src/ui/hud/CanvasHud.cpp
+    src/ui/hud/CanvasHud.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

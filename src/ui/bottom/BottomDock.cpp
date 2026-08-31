@@ -89,7 +89,7 @@ BottomDock::BottomDock(QWidget* parent)
     auto* center = makeDockButton(this, "C   CENTRAR");
     auto* hideDock = new QPushButton(QStringLiteral("⌄"), this);
     hideDock->setObjectName("squareBottomButton");
-    hideDock->setFixedSize(40, 38);
+    hideDock->setFixedSize(42, 38);
     layout->addWidget(zoomReadout);
     layout->addWidget(center);
     layout->addWidget(hideDock);

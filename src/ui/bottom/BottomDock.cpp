@@ -4,6 +4,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QVBoxLayout>
 
 namespace Skink::Ui::Bottom {
 
@@ -36,23 +37,35 @@ BottomDock::BottomDock(QWidget* parent)
     recording->setObjectName("bottomStrong");
     auto* recordTime = new QLabel("00:00:00", this);
     recordTime->setObjectName("bottomText");
+    auto* recordChevron = new QLabel(QStringLiteral("⌄"), this);
+    recordChevron->setObjectName("bottomText");
     layout->addWidget(recordDot);
     layout->addWidget(recording);
     layout->addWidget(recordTime);
+    layout->addWidget(recordChevron);
     layout->addStretch();
 
-    auto* duration = new QComboBox(this);
+    auto* durationWrap = new QWidget(this);
+    auto* durationLayout = new QVBoxLayout(durationWrap);
+    durationLayout->setContentsMargins(0, 0, 0, 0);
+    durationLayout->setSpacing(2);
+
+    auto* processCaption = new QLabel("PROCESO", durationWrap);
+    processCaption->setObjectName("processCaption");
+    auto* duration = new QComboBox(durationWrap);
     duration->setObjectName("processSelect");
     duration->addItem("30 seg", 30);
     duration->addItem("1 min", 60);
     duration->addItem("3 min", 180);
     duration->addItem("5 min", 300);
     duration->setCurrentIndex(2);
+    durationLayout->addWidget(processCaption);
+    durationLayout->addWidget(duration);
 
-    auto* preview = makeDockButton(this, "VISTA PREVIA");
-    auto* stop = makeDockButton(this, "DETENER");
+    auto* preview = makeDockButton(this, QStringLiteral("▶  VISTA PREVIA"));
+    auto* stop = makeDockButton(this, QStringLiteral("■  DETENER"));
     auto* save = makeDockButton(this, "GUARDAR PSD");
-    layout->addWidget(duration);
+    layout->addWidget(durationWrap);
     layout->addWidget(preview);
     layout->addWidget(stop);
     layout->addWidget(save);
@@ -74,8 +87,12 @@ BottomDock::BottomDock(QWidget* parent)
     zoomLayout->addWidget(zoomIn);
 
     auto* center = makeDockButton(this, "C   CENTRAR");
+    auto* hideDock = new QPushButton(QStringLiteral("⌄"), this);
+    hideDock->setObjectName("squareBottomButton");
+    hideDock->setFixedSize(40, 38);
     layout->addWidget(zoomReadout);
     layout->addWidget(center);
+    layout->addWidget(hideDock);
 
     connect(zoomOut, &QPushButton::clicked, this, &BottomDock::zoomOutRequested);
     connect(zoomIn, &QPushButton::clicked, this, &BottomDock::zoomInRequested);

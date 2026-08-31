@@ -44,6 +44,8 @@ qt_add_executable(Skink
     src/ui/brush/QuickBrushPanel.hpp
     src/ui/layers/LayersPanel.cpp
     src/ui/layers/LayersPanel.hpp
+    src/ui/docking/SkinkDockPanel.cpp
+    src/ui/docking/SkinkDockPanel.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

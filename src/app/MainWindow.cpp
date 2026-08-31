@@ -7,6 +7,7 @@
 #include "ui/brush/BrushControls.hpp"
 #include "ui/brush/QuickBrushPanel.hpp"
 #include "ui/layers/LayersPanel.hpp"
+#include "ui/docking/SkinkDockPanel.hpp"
 
 #include <QComboBox>
 #include <QFrame>
@@ -182,12 +183,20 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
         if (m_canvas) m_canvas->setBrushSize(value);
     });
 
-    m_layersPanel = new Ui::Layers::LayersPanel(parent);
-    m_quickBrushPanel = new Ui::Brush::QuickBrushPanel(parent);
+    auto* layersPanel = new Ui::Layers::LayersPanel(this);
+    auto* quickBrushPanel = new Ui::Brush::QuickBrushPanel(this);
+    m_layersDock = new Ui::Docking::SkinkDockPanel("CAPAS", layersPanel, this);
+    m_quickBrushDock = new Ui::Docking::SkinkDockPanel("PINCEL RAPIDO", quickBrushPanel, this);
+    addDockWidget(Qt::RightDockWidgetArea, m_layersDock);
+    addDockWidget(Qt::RightDockWidgetArea, m_quickBrushDock);
+    m_layersDock->setFloating(true);
+    m_quickBrushDock->setFloating(true);
+    m_layersDock->move(width() - m_layersDock->width() - 20, 30);
+    m_quickBrushDock->move(width() - m_quickBrushDock->width() - 20, 485);
     m_workspace->setLeftOverlays(m_toolStrip, m_leftControls);
-    m_workspace->setRightOverlays(m_layersPanel, m_quickBrushPanel);
     return;
 
+#if 0
     m_layersPanel = new QFrame(parent);
     m_layersPanel->setObjectName("floatingPanel");
     m_layersPanel->setFixedSize(330, 346);
@@ -240,6 +249,7 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
 
     m_workspace->setLeftOverlays(m_toolStrip, m_leftControls);
     m_workspace->setRightOverlays(m_layersPanel, m_quickBrushPanel);
+#endif
 }
 
 void MainWindow::buildBottomBar(QWidget* parent)

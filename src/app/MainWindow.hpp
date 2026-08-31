@@ -8,6 +8,7 @@ namespace Skink::Core::Canvas { class CanvasWidget; }
 namespace Skink::Ui::Workspace { class WorkspaceWidget; }
 namespace Skink::Ui::ToolRail { class ToolRail; }
 namespace Skink::Ui::Brush { class BrushControls; }
+namespace Skink::Ui::Docking { class SkinkDockPanel; }
 
 namespace Skink::App {
 
@@ -27,8 +28,8 @@ private:
     Ui::Workspace::WorkspaceWidget* m_workspace{nullptr};
     Ui::ToolRail::ToolRail* m_toolStrip{nullptr};
     Ui::Brush::BrushControls* m_leftControls{nullptr};
-    QWidget* m_layersPanel{nullptr};
-    QWidget* m_quickBrushPanel{nullptr};
+    Ui::Docking::SkinkDockPanel* m_layersDock{nullptr};
+    Ui::Docking::SkinkDockPanel* m_quickBrushDock{nullptr};
 };
 
 } // namespace Skink::App

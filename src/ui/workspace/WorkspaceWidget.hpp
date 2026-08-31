@@ -14,7 +14,6 @@ public:
 
     void setCanvas(Core::Canvas::CanvasWidget* canvas);
     void setLeftOverlays(QWidget* toolRail, QWidget* brushControls);
-    void setRightOverlays(QWidget* layersPanel, QWidget* quickBrushPanel);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -26,8 +25,6 @@ private:
     Core::Canvas::CanvasWidget* m_canvas{nullptr};
     QWidget* m_toolRail{nullptr};
     QWidget* m_brushControls{nullptr};
-    QWidget* m_layersPanel{nullptr};
-    QWidget* m_quickBrushPanel{nullptr};
 };
 
 } // namespace Skink::Ui::Workspace

@@ -71,20 +71,20 @@ void CanvasWidget::redo()
 void CanvasWidget::resetView()
 {
     m_pan = {};
+    const bool changed = !qFuzzyCompare(m_zoom, 1.0);
     m_zoom = 1.0;
     update();
+    if (changed) emit zoomChanged(zoomPercent());
 }
 
 void CanvasWidget::zoomIn()
 {
-    m_zoom = std::clamp(m_zoom * 1.1, 0.1, 8.0);
-    update();
+    applyZoom(1.1, rect().center());
 }
 
 void CanvasWidget::zoomOut()
 {
-    m_zoom = std::clamp(m_zoom / 1.1, 0.1, 8.0);
-    update();
+    applyZoom(1.0 / 1.1, rect().center());
 }
 
 int CanvasWidget::zoomPercent() const
@@ -218,18 +218,20 @@ void CanvasWidget::wheelEvent(QWheelEvent* event)
         return;
     }
 
-    const qreal factor = event->angleDelta().y() > 0 ? 1.1 : 1.0 / 1.1;
-    const qreal nextZoom = std::clamp(m_zoom * factor, 0.1, 8.0);
-    if (qFuzzyCompare(nextZoom, m_zoom)) {
-        event->accept();
-        return;
-    }
-
-    m_zoom = nextZoom;
-    const QPointF mappedAfterZoom = documentTransform().map(*anchorDocument);
-    m_pan += event->position() - mappedAfterZoom;
-    update();
+    applyZoom(event->angleDelta().y() > 0 ? 1.1 : 1.0 / 1.1, event->position());
     event->accept();
+}
+
+void CanvasWidget::applyZoom(qreal factor, const QPointF& anchor)
+{
+    const auto anchorDocument = mapToDocument(anchor);
+    if (!anchorDocument) return;
+    const qreal nextZoom = std::clamp(m_zoom * factor, 0.1, 8.0);
+    if (qFuzzyCompare(nextZoom, m_zoom)) return;
+    m_zoom = nextZoom;
+    m_pan += anchor - documentTransform().map(*anchorDocument);
+    update();
+    emit zoomChanged(zoomPercent());
 }
 
 void CanvasWidget::keyPressEvent(QKeyEvent* event)

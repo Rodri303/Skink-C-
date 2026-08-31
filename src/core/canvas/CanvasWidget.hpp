@@ -43,6 +43,7 @@ private:
     [[nodiscard]] std::optional<QPointF> mapToDocument(const QPointF& viewportPosition) const;
     [[nodiscard]] bool isInsideDocument(const QPointF& documentPosition) const;
     [[nodiscard]] Brush::BrushSample tabletSample(const QTabletEvent& event, const QPointF& documentPosition) const;
+    void applyZoom(qreal factor, const QPointF& anchor);
 
     void beginStroke(const Brush::BrushSample& sample);
     void continueStroke(const Brush::BrushSample& sample);
@@ -58,6 +59,9 @@ private:
     QPointF m_pan;
     QPointF m_lastPanPosition;
     qreal m_zoom{1.0};
+
+signals:
+    void zoomChanged(int percent);
 };
 
 } // namespace Skink::Core::Canvas

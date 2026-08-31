@@ -62,7 +62,13 @@ void MainWindow::buildInterface()
         showDockPanel(m_quickBrushDock);
     });
     connect(m_topBar, &Ui::TopBar::TopBar::layersPanelRequested, this, [this] {
-        showDockPanel(m_layersDock);
+        if (!m_layersDock) return;
+
+        if (m_layersDock->isVisible()) {
+            m_layersDock->hide();
+        } else {
+            showDockPanel(m_layersDock);
+        }
     });
     connect(m_topBar, &Ui::TopBar::TopBar::colorPickerRequested, this, [this] {
         if (!m_colorDock) return;

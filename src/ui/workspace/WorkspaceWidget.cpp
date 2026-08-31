@@ -14,7 +14,7 @@ constexpr int kOverlayMargin = 18;
 constexpr int kToolRailTop = 52;
 constexpr int kControlsTop = 232;
 constexpr int kLayersTop = 30;
-constexpr int kPanelSpacing = 14;
+constexpr int kQuickBrushTop = 485;
 }
 
 WorkspaceWidget::WorkspaceWidget(QWidget* parent)
@@ -67,13 +67,7 @@ void WorkspaceWidget::updateOverlayGeometry()
     };
 
     if (m_layersPanel) m_layersPanel->move(rightAlignedX(m_layersPanel), kLayersTop);
-    if (m_quickBrushPanel) {
-        const int quickBrushTop = m_layersPanel
-            ? m_layersPanel->geometry().bottom() + kPanelSpacing + 1
-            : kLayersTop;
-        const int bottomBound = std::max(kOverlayMargin, height() - m_quickBrushPanel->height() - kOverlayMargin);
-        m_quickBrushPanel->move(rightAlignedX(m_quickBrushPanel), std::min(quickBrushTop, bottomBound));
-    }
+    if (m_quickBrushPanel) m_quickBrushPanel->move(rightAlignedX(m_quickBrushPanel), kQuickBrushTop);
 
     if (m_canvas) m_canvas->lower();
     for (QWidget* overlay : {m_toolRail, m_brushControls, m_layersPanel, m_quickBrushPanel}) {

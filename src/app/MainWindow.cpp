@@ -5,6 +5,8 @@
 #include "ui/topbar/TopBar.hpp"
 #include "ui/toolrail/ToolRail.hpp"
 #include "ui/brush/BrushControls.hpp"
+#include "ui/brush/QuickBrushPanel.hpp"
+#include "ui/layers/LayersPanel.hpp"
 
 #include <QComboBox>
 #include <QFrame>
@@ -179,6 +181,12 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     connect(m_leftControls, &Ui::Brush::BrushControls::brushSizeChanged, this, [this](int value) {
         if (m_canvas) m_canvas->setBrushSize(value);
     });
+
+    m_layersPanel = new Ui::Layers::LayersPanel(parent);
+    m_quickBrushPanel = new Ui::Brush::QuickBrushPanel(parent);
+    m_workspace->setLeftOverlays(m_toolStrip, m_leftControls);
+    m_workspace->setRightOverlays(m_layersPanel, m_quickBrushPanel);
+    return;
 
     m_layersPanel = new QFrame(parent);
     m_layersPanel->setObjectName("floatingPanel");

@@ -40,6 +40,10 @@ qt_add_executable(Skink
     src/ui/toolrail/ToolRail.hpp
     src/ui/brush/BrushControls.cpp
     src/ui/brush/BrushControls.hpp
+    src/ui/brush/QuickBrushPanel.cpp
+    src/ui/brush/QuickBrushPanel.hpp
+    src/ui/layers/LayersPanel.cpp
+    src/ui/layers/LayersPanel.hpp
 )
 
 target_include_directories(Skink PRIVATE src)

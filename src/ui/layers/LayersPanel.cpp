@@ -81,7 +81,9 @@ LayersPanel::LayersPanel(QWidget* parent) : QFrame(parent)
         layerGroup->addButton(row, index);
         layout->addWidget(row);
     }
-    connect(layerGroup, &QButtonGroup::idClicked, this, &LayersPanel::layerSelected);
+    connect(layerGroup, &QButtonGroup::idToggled, this, [this](int index, bool checked) {
+        if (checked) emit layerSelected(index);
+    });
     connect(add, &QPushButton::clicked, this, &LayersPanel::addLayerRequested);
 }
 

@@ -456,7 +456,7 @@ void MainWindow::applyStyle()
             background: #1d1e21;
         }
 
-        #quickCardSelected {
+        #quickCardSelected, #quickCard:checked {
             border: 1px solid #1d8dff;
             color: white;
         }

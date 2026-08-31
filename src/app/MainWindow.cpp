@@ -11,11 +11,11 @@
 
 #include <QComboBox>
 #include <QFrame>
-#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QSlider>
+#include <QShowEvent>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -88,45 +88,6 @@ QWidget* makeControlBlock(
     return block;
 }
 
-QWidget* makeLayerRow(QWidget* parent, const QString& name, const QString& meta, bool selected)
-{
-    auto* row = new QWidget(parent);
-    row->setObjectName(selected ? "layerSelected" : "layerRow");
-    row->setFixedHeight(58);
-
-    auto* layout = new QHBoxLayout(row);
-    layout->setContentsMargins(10, 5, 10, 5);
-    layout->setSpacing(8);
-
-    auto* eye = makeButton(row, QStringLiteral("◉"), "layerIconButton");
-    eye->setFixedWidth(24);
-
-    auto* thumb = new QFrame(row);
-    thumb->setObjectName(selected ? "layerThumbDark" : "layerThumb");
-    thumb->setFixedSize(44, 44);
-
-    auto* nameLabel = makeLabel(row, name, "layerName");
-    auto* metaLabel = makeLabel(row, meta, "layerMeta");
-    auto* dots = makeButton(row, QStringLiteral("⋮"), "layerIconButton");
-    dots->setFixedWidth(20);
-
-    layout->addWidget(eye);
-    layout->addWidget(thumb);
-    layout->addWidget(nameLabel, 1);
-    layout->addWidget(metaLabel);
-    layout->addWidget(dots);
-    return row;
-}
-
-QPushButton* makeQuickBrush(QWidget* parent, const QString& name, const QString& preview, bool selected)
-{
-    auto* button = makeButton(parent, name + QStringLiteral("\n\n") + preview, selected ? "quickCardSelected" : "quickCard");
-    button->setMinimumHeight(86);
-    button->setCheckable(true);
-    button->setChecked(selected);
-    return button;
-}
-
 } // namespace
 
 MainWindow::MainWindow(QWidget* parent)
@@ -191,65 +152,23 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     addDockWidget(Qt::RightDockWidgetArea, m_quickBrushDock);
     m_layersDock->setFloating(true);
     m_quickBrushDock->setFloating(true);
-    m_layersDock->move(width() - m_layersDock->width() - 20, 30);
-    m_quickBrushDock->move(width() - m_quickBrushDock->width() - 20, 485);
     m_workspace->setLeftOverlays(m_toolStrip, m_leftControls);
     return;
 
-#if 0
-    m_layersPanel = new QFrame(parent);
-    m_layersPanel->setObjectName("floatingPanel");
-    m_layersPanel->setFixedSize(330, 346);
-    auto* layersLayout = new QVBoxLayout(m_layersPanel);
-    layersLayout->setContentsMargins(0, 0, 0, 0);
-    layersLayout->setSpacing(0);
+}
 
-    auto* layerHeader = new QWidget(m_layersPanel);
-    layerHeader->setObjectName("panelHeader");
-    layerHeader->setFixedHeight(46);
-    auto* layerHeaderLayout = new QHBoxLayout(layerHeader);
-    layerHeaderLayout->setContentsMargins(18, 0, 12, 0);
-    layerHeaderLayout->addWidget(makeLabel(layerHeader, "CAPAS", "panelTitle"));
-    layerHeaderLayout->addStretch(1);
-    layerHeaderLayout->addWidget(makeButton(layerHeader, QStringLiteral("＋"), "panelHeaderButton"));
-    layersLayout->addWidget(layerHeader);
+void MainWindow::showEvent(QShowEvent* event)
+{
+    QMainWindow::showEvent(event);
+    if (m_initialDockPositionsApplied) return;
 
-    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 4", "100% N", true));
-    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 3", "55% N", false));
-    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 2", "100% N", false));
-    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Capa 1", "100% N", false));
-    layersLayout->addWidget(makeLayerRow(m_layersPanel, "Fondo", QStringLiteral("🔒"), false));
-
-    m_quickBrushPanel = new QFrame(parent);
-    m_quickBrushPanel->setObjectName("floatingPanel");
-    m_quickBrushPanel->setFixedSize(330, 230);
-    auto* quickLayout = new QVBoxLayout(m_quickBrushPanel);
-    quickLayout->setContentsMargins(0, 0, 0, 0);
-    quickLayout->setSpacing(0);
-
-    auto* quickHeader = new QWidget(m_quickBrushPanel);
-    quickHeader->setObjectName("panelHeader");
-    quickHeader->setFixedHeight(46);
-    auto* quickHeaderLayout = new QHBoxLayout(quickHeader);
-    quickHeaderLayout->setContentsMargins(18, 0, 12, 0);
-    quickHeaderLayout->addWidget(makeLabel(quickHeader, "PINCEL RÁPIDO", "panelTitle"));
-    quickHeaderLayout->addStretch(1);
-    quickHeaderLayout->addWidget(makeButton(quickHeader, QStringLiteral("▣"), "panelHeaderButton"));
-    quickLayout->addWidget(quickHeader);
-
-    auto* quickGridHost = new QWidget(m_quickBrushPanel);
-    auto* quickGrid = new QGridLayout(quickGridHost);
-    quickGrid->setContentsMargins(12, 10, 12, 10);
-    quickGrid->setSpacing(8);
-    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Tinta transparente", "────────", false), 0, 0);
-    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Marcador", "━━━━━━", true), 0, 1);
-    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Lápiz", "┄┄┄┄┄┄", false), 1, 0);
-    quickGrid->addWidget(makeQuickBrush(quickGridHost, "Aerógrafo", "≈≈≈≈≈≈", false), 1, 1);
-    quickLayout->addWidget(quickGridHost, 1);
-
-    m_workspace->setLeftOverlays(m_toolStrip, m_leftControls);
-    m_workspace->setRightOverlays(m_layersPanel, m_quickBrushPanel);
-#endif
+    m_initialDockPositionsApplied = true;
+    const auto placeDock = [this](Ui::Docking::SkinkDockPanel* dock, int top) {
+        const QPoint localPosition(width() - dock->width() - 20, top);
+        dock->move(mapToGlobal(localPosition));
+    };
+    placeDock(m_layersDock, 30);
+    placeDock(m_quickBrushDock, 485);
 }
 
 void MainWindow::buildBottomBar(QWidget* parent)

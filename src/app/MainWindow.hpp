@@ -18,6 +18,9 @@ class MainWindow final : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
 
+protected:
+    void showEvent(QShowEvent* event) override;
+
 private:
     void buildInterface();
     void buildWorkspaceOverlays(QWidget* parent);
@@ -30,6 +33,7 @@ private:
     Ui::Brush::BrushControls* m_leftControls{nullptr};
     Ui::Docking::SkinkDockPanel* m_layersDock{nullptr};
     Ui::Docking::SkinkDockPanel* m_quickBrushDock{nullptr};
+    bool m_initialDockPositionsApplied{false};
 };
 
 } // namespace Skink::App

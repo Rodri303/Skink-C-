@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 
+class QCloseEvent;
 class QWidget;
 
 namespace Skink::Core::Canvas { class CanvasWidget; }
@@ -21,6 +22,7 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
 
 protected:
+    void closeEvent(QCloseEvent* event) override;
     void showEvent(QShowEvent* event) override;
 
 private:
@@ -40,6 +42,7 @@ private:
     Ui::Docking::SkinkDockPanel* m_quickBrushDock{nullptr};
     bool m_initialColorDockPositionApplied{false};
     bool m_initialDockPositionsApplied{false};
+    bool m_workspaceStateRestored{false};
 };
 
 } // namespace Skink::App

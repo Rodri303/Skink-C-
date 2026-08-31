@@ -2,6 +2,7 @@
 
 #include "core/canvas/CanvasWidget.hpp"
 #include "ui/workspace/WorkspaceWidget.hpp"
+#include "ui/workspace/WorkspacePersistence.hpp"
 #include "ui/topbar/TopBar.hpp"
 #include "ui/toolrail/ToolRail.hpp"
 #include "ui/brush/BrushControls.hpp"
@@ -12,6 +13,7 @@
 #include "ui/layers/LayersPanel.hpp"
 #include "ui/docking/SkinkDockPanel.hpp"
 
+#include <QCloseEvent>
 #include <QShowEvent>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -27,6 +29,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     buildInterface();
     applyStyle();
+    m_workspaceStateRestored = Ui::Workspace::WorkspacePersistence::restore(*this);
 }
 
 void MainWindow::buildInterface()
@@ -86,7 +89,7 @@ void MainWindow::buildInterface()
     m_colorPanel = new Ui::Color::ColorPanel(this);
     m_colorPanel->setColor(m_colorPicker->currentColor());
     m_colorDock = new Ui::Docking::SkinkDockPanel("COLOR", m_colorPanel, this);
-    m_colorDock->setFeatures(m_colorDock->features() | QDockWidget::DockWidgetClosable);
+    m_colorDock->setObjectName("ColorDock");
     addDockWidget(Qt::RightDockWidgetArea, m_colorDock);
     m_colorDock->setFloating(true);
     m_colorDock->resize(300, 450);
@@ -109,6 +112,8 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     auto* quickBrushPanel = new Ui::Brush::QuickBrushPanel(this);
     m_layersDock = new Ui::Docking::SkinkDockPanel("CAPAS", layersPanel, this);
     m_quickBrushDock = new Ui::Docking::SkinkDockPanel("PINCEL RAPIDO", quickBrushPanel, this);
+    m_layersDock->setObjectName("LayersDock");
+    m_quickBrushDock->setObjectName("QuickBrushDock");
     addDockWidget(Qt::RightDockWidgetArea, m_layersDock);
     addDockWidget(Qt::RightDockWidgetArea, m_quickBrushDock);
     m_layersDock->setFloating(true);
@@ -118,12 +123,24 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
 
 }
 
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    Ui::Workspace::WorkspacePersistence::save(*this);
+    QMainWindow::closeEvent(event);
+}
+
 void MainWindow::showEvent(QShowEvent* event)
 {
     QMainWindow::showEvent(event);
     if (m_initialDockPositionsApplied) return;
 
     m_initialDockPositionsApplied = true;
+    if (m_workspaceStateRestored) {
+        m_initialColorDockPositionApplied = true;
+        Ui::Workspace::WorkspacePersistence::ensureVisible(*this);
+        return;
+    }
+
     const auto placeDock = [this](Ui::Docking::SkinkDockPanel* dock, int top) {
         const QPoint localPosition(width() - dock->width() - 20, top);
         dock->move(mapToGlobal(localPosition));

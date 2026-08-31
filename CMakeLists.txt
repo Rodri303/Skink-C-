@@ -48,4 +48,11 @@ target_link_libraries(Skink PRIVATE Qt6::Widgets Qt6::Gui)
 
 if(WIN32)
     set_target_properties(Skink PROPERTIES WIN32_EXECUTABLE TRUE)
+
+    add_custom_target(SkinkDeployDebug
+        COMMAND $<TARGET_FILE:Qt6::windeployqt> --debug --compiler-runtime $<TARGET_FILE:Skink>
+        DEPENDS Skink
+        COMMENT "Deploying the Qt Debug runtime for Skink"
+        VERBATIM
+    )
 endif()

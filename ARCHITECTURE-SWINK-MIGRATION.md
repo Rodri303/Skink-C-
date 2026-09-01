@@ -84,6 +84,171 @@ This is suitable for validating architecture and behavior, but it is not intende
 9. Port process recording at the document-operation/stroke level rather than recording rendered frames.
 10. Add serialization only after document/layer/history boundaries stabilize.
 
+## Future module: Skink Artwork Reconstruction / Artwork Scanner
+
+This is a future product and research line. It is not part of Phase 08 and must not interrupt Brush Core work or renumber the current phases.
+
+### Problem and product goal
+
+Artwork Reconstruction should let an artist photograph different, partially overlapping regions of a predominantly flat physical artwork and reconstruct one very-high-resolution master document. Target material includes drawings, illustrations, paintings, pages and other flat artistic surfaces.
+
+A grid of 6, 9, 12, 20 or more photographs may record substantially more real surface detail than one full-frame photograph. The goal is to recover detail actually captured by the camera, not merely invent pixels through generic upscaling or AI.
+
+The intended result is a normal Skink document. Artwork Scanner must not introduce a second, incompatible document model.
+
+### Laboratory-first development
+
+Development should begin as an independent Artwork Reconstruction application/prototype rather than inside the main Skink executable. The laboratory should make it possible to measure and iterate on:
+
+- feature detection and matching accuracy;
+- incorrect-match rejection;
+- homographies, perspective correction and warping quality;
+- seam quality and blending;
+- exposure, illumination and color consistency;
+- stacking and multi-frame reconstruction;
+- RAM use and processing time;
+- very large reconstructions and large photograph sets.
+
+The prototype protects editor stability, but its Core must not be disposable. Core components should be designed for later integration through explicit Skink interfaces and without depending directly on Qt Widgets or a specific renderer.
+
+External projects are research material. Skink should own its architecture and code while consuming verified libraries through adapters:
+
+`External projects -> research -> Skink-owned architecture/code -> verified APIs/libraries`
+
+### Conceptual architecture
+
+The target direction is approximately:
+
+`Artwork Scanner UI`
+`-> ArtworkReconstructionController`
+`-> Artwork Reconstruction Core`
+`-> computer-vision adapters`
+`-> OpenCV or another verified implementation library`
+`-> Skink Document / Tile APIs`
+
+Possible Core responsibilities include:
+
+- `ImageAnalysis`;
+- `FeatureDetection`;
+- `ImageMatching`;
+- `GeometryAlignment`;
+- `PerspectiveCorrection`;
+- `ExposureCompensation`;
+- `ColorNormalization`;
+- `SeamDetection`;
+- `Blending`;
+- `ImageStacking`;
+- `MultiFrameReconstruction`.
+
+These names are conceptual. Do not create these classes until implementation work actually begins.
+
+### Initial reconstruction pipeline
+
+The initial technical direction is:
+
+1. Import photographs and read available metadata.
+2. Identify related photographs and candidate regions.
+3. Detect suitable image features.
+4. Match features and reject invalid correspondences.
+5. Use RANSAC and estimate homographies.
+6. Correct perspective and, when appropriate, lens distortion.
+7. Warp and align images, including later subpixel refinement.
+8. Compensate exposure and normalize photometric/color differences.
+9. Detect seams and blend regions.
+10. Produce the final reconstruction and master Skink document.
+
+Because the target works are mostly planar, homography estimation, plane geometry, perspective rectification and lens-distortion correction require particular care. These techniques solve related but different problems and must not be treated as interchangeable.
+
+### Stitching, stacking and multi-frame reconstruction
+
+These are separate operations:
+
+- **Stitching/mosaicing** joins photographs of different physical regions. A 3x3 capture grid can reconstruct one larger original.
+- **Stacking** combines multiple photographs of the same region to reduce noise, improve signal stability and reduce defects from an individual capture.
+- **Multi-frame reconstruction/super-resolution research** investigates whether small capture offsets contain complementary subpixel information that can recover additional real detail. It must not be presented as ordinary upscaling.
+
+An advanced session could contain 9 regions with 3 captures per region (27 images). The system should eventually group A1/A2/A3, B1/B2/B3 and so on; align and combine each same-region group first; then stitch the resulting regions into the full work.
+
+### Color and capture consistency
+
+Geometric alignment alone is insufficient for artwork reproduction. Future research must address:
+
+- exposure and white balance;
+- uneven illumination and vignetting;
+- color differences between photographs;
+- photometric consistency across all regions;
+- optional color-chart, neutral-gray and camera calibration workflows;
+- capture profiles shared by an entire photographic session.
+
+This must be able to evolve toward Skink's professional color-management architecture. Do not permanently constrain reconstruction data to 8-bit sRGB if the future Color Engine and document format support greater precision or wider color spaces.
+
+### OpenCV and research references
+
+OpenCV is the leading implementation candidate for feature detection, SIFT or other appropriate detectors, matching, homographies, RANSAC, warping, stitching, blending, transformations and photometric image processing. It should be used as an algorithms/operations library behind Skink-owned adapters, not as application architecture.
+
+Do not add OpenCV to the current project. Select and verify a concrete version only when development starts.
+
+Research should include:
+
+- small educational implementations of SIFT -> KNN matching -> RANSAC -> homography -> warping -> blending;
+- educational material covering perspective, DLT/RANSAC and stitching stages;
+- advanced conceptual references for control points, optimization, photometric correction and professional blending pipelines;
+- independently implemented panorama/stitching projects used to understand algorithms and compare architectures.
+
+Research code must not be copied without verifying provenance and license. GPL implementations may be studied conceptually but must not be incorporated into proprietary Skink code without a specific compatibility review.
+
+### Integration prerequisites and boundaries
+
+Main-editor integration depends principally on mature:
+
+- Document and Layer Engine boundaries;
+- tiled image storage and processing;
+- file/project and resource handling;
+- sufficient color architecture;
+- stable internal APIs.
+
+Reconstructions made from many photographs may be extremely large. The Tile Engine is therefore a key dependency: processing and storage should support progressive, regional operation instead of assuming one permanently resident monolithic bitmap.
+
+File/project design must later decide whether source photographs are linked, embedded, stored as project resources or discarded after master generation. This decision is intentionally deferred.
+
+Artwork Reconstruction and Canvas Recorder are independent modules. Neither may depend directly on the other, although both may use shared Document, Tiles, Color, storage and regional-processing infrastructure.
+
+The future user flow may resemble `File -> Import -> Artwork Scan`, but its UI is intentionally undefined at this stage.
+
+### Staged future work
+
+1. Build an independent laboratory that loads photograph sets and records accuracy, matching failures, seam quality, distortion, memory use, processing time and practical maximum size.
+2. Implement multi-region matching, homography, perspective correction, warping and blending.
+3. Add exposure, illumination, vignetting and color-consistency processing.
+4. Add same-region classification, alignment and stacking.
+5. Research subpixel alignment and genuine multi-frame detail recovery.
+6. Integrate the stable pipeline through Skink-owned interfaces.
+7. Convert reconstruction output into the normal Skink Document/Tile Engine.
+8. Design the final guided user workflow only after the pipeline is reliable.
+
+The independent laboratory may begin earlier than these integration prerequisites because it must not compromise the main Skink codebase.
+
+## External dependency and licensing policy
+
+Every external dependency that may be incorporated into Skink must have a maintained record containing:
+
+- name and exact version;
+- official repository/site;
+- license;
+- copyright holders/authors;
+- reason for use;
+- Skink components that use it;
+- attribution obligations;
+- LICENSE/NOTICE files that must be distributed;
+- relevant known patent considerations;
+- date on which the information was verified.
+
+This information must be checked again against official sources when a dependency is integrated. Historical roadmap notes are not sufficient evidence.
+
+A compatible open-source license is not a complete legal or technical risk assessment. Important algorithms and dependencies require review of license, version, provenance, relevant known patents and distribution obligations. The roadmap must not claim definitive legal conclusions.
+
+The product should eventually provide `Help -> Third-party licenses`. Ideally the UI and distributed third-party notice file should be generated from one dependency register maintained with the project, avoiding duplicated manual records.
+
 ## Mandatory pre-release task (Phase 15/16)
 
 Wacom diagnostics cleanup is **mandatory before release**:

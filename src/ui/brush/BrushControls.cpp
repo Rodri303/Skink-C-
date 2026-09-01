@@ -6,6 +6,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QObject>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QVBoxLayout>
 
@@ -105,16 +106,19 @@ BrushControls::BrushControls(QWidget* parent)
 
 void BrushControls::setBrushSize(int value)
 {
+    const QSignalBlocker blocker(m_sizeSlider);
     m_sizeSlider->setValue(value);
 }
 
 void BrushControls::setOpacity(int value)
 {
+    const QSignalBlocker blocker(m_opacitySlider);
     m_opacitySlider->setValue(value);
 }
 
 void BrushControls::setPressureSensitivity(int value)
 {
+    const QSignalBlocker blocker(m_pressureSlider);
     m_pressureSlider->setValue(value);
 }
 

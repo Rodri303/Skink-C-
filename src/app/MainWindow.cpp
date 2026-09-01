@@ -394,6 +394,10 @@ void MainWindow::applyStyle()
         }
 
         #sliderColumn QSlider::sub-page:vertical {
+            background: #3a3b3f;
+        }
+
+        #sliderColumn QSlider::add-page:vertical {
             background: #d7d7d8;
         }
 

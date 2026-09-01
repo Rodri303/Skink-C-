@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSizePolicy>
 #include <QVBoxLayout>
 
@@ -61,6 +62,7 @@ QuickBrushPanel::QuickBrushPanel(QWidget* parent) : QFrame(parent)
 void QuickBrushPanel::setActivePreset(Core::Brush::BrushPreset preset)
 {
     if (auto* button = m_presetGroup->button(static_cast<int>(preset))) {
+        const QSignalBlocker blocker(button);
         button->setChecked(true);
     }
 }

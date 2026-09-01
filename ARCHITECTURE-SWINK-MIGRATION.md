@@ -84,11 +84,12 @@ This is suitable for validating architecture and behavior, but it is not intende
 9. Port process recording at the document-operation/stroke level rather than recording rendered frames.
 10. Add serialization only after document/layer/history boundaries stabilize.
 
-## Phase 08.3 - Stroke Entry / Pending Stroke (documented only)
+## Phase 08.3 - Stroke Entry / Pending Stroke
 
-Phase 08.3 must add a pending-stroke input state for contacts that begin inside
-the drawing workspace but outside the physical white document. It is explicitly
-not implemented in Phase 08.2.
+Phase 08.3 adds a pending-stroke input state for contacts that begin inside
+the drawing workspace but outside the physical white document. The initial
+Mouse/Tablet state and first-valid-entry behavior are implemented in
+`CanvasWidget`; exact geometric edge intersection remains a future refinement.
 
 Required future behavior:
 

@@ -3,6 +3,7 @@
 #include "core/brush/BrushDynamics.hpp"
 
 #include <QDebug>
+#include <QFocusEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
@@ -68,6 +69,7 @@ void CanvasWidget::setActiveTool(Tools::Tool tool)
 {
     if (m_activeTool == tool) return;
     if (m_drawing) endStroke();
+    cancelPendingStroke();
 
     m_activeTool = tool;
     applyBrushState();
@@ -79,7 +81,10 @@ void CanvasWidget::setTemporaryPan(bool active)
     if (m_temporaryPan == active) return;
 
     m_temporaryPan = active;
-    if (m_temporaryPan && m_drawing) endStroke();
+    if (m_temporaryPan) {
+        cancelPendingStroke();
+        if (m_drawing) endStroke();
+    }
     if (!m_temporaryPan
         && m_navigationGesture == NavigationGesture::Pan
         && m_panRequiresTemporary) {
@@ -94,6 +99,8 @@ void CanvasWidget::setNavigationModifiers(bool control, bool alt, bool shift)
     m_altHeld = alt;
     m_shiftHeld = shift;
 
+    if (m_controlHeld || m_altHeld) cancelPendingStroke();
+
     if (m_navigationGesture == NavigationGesture::Rotation && !m_controlHeld) {
         endNavigationGesture();
     } else if (m_navigationGesture == NavigationGesture::DragZoom && !m_altHeld) {
@@ -107,6 +114,7 @@ void CanvasWidget::cancelNavigation()
     m_controlHeld = false;
     m_altHeld = false;
     m_shiftHeld = false;
+    cancelPendingStroke();
     endNavigationGesture();
 }
 
@@ -197,6 +205,10 @@ void CanvasWidget::mousePressEvent(QMouseEvent* event)
             event->accept();
             return;
         }
+
+        beginPendingStroke(PendingStrokeSource::Mouse);
+        event->accept();
+        return;
     }
 
     QWidget::mousePressEvent(event);
@@ -220,6 +232,20 @@ void CanvasWidget::mouseMoveEvent(QMouseEvent* event)
 
     if ((event->buttons() & Qt::LeftButton)
         && beginNavigation(event->position(), Qt::LeftButton, false)) {
+        event->accept();
+        return;
+    }
+
+    if (hasPendingStroke(PendingStrokeSource::Mouse)) {
+        if (!(event->buttons() & Qt::LeftButton)) {
+            cancelPendingStroke();
+        } else {
+            const auto documentPosition = mapToDocument(event->position());
+            if (documentPosition && isInsideDocument(*documentPosition)) {
+                cancelPendingStroke();
+                beginStroke({*documentPosition, 1.0, 0.0, 0.0, 0.0, 0.0, event->timestamp()});
+            }
+        }
         event->accept();
         return;
     }
@@ -256,6 +282,13 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
         return;
     }
 
+    if (event->button() == Qt::LeftButton
+        && hasPendingStroke(PendingStrokeSource::Mouse)) {
+        cancelPendingStroke();
+        event->accept();
+        return;
+    }
+
     QWidget::mouseReleaseEvent(event);
 }
 
@@ -272,6 +305,8 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
         }
         if (drawingToolActive() && documentPosition && isInsideDocument(*documentPosition)) {
             beginStroke(tabletSample(*event, *documentPosition));
+        } else if (drawingToolActive()) {
+            beginPendingStroke(PendingStrokeSource::Tablet);
         }
         break;
     case QEvent::TabletMove:
@@ -284,6 +319,13 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
         } else if (event->pressure() > 0.0
                    && beginNavigation(event->position(), Qt::LeftButton, true)) {
             break;
+        } else if (hasPendingStroke(PendingStrokeSource::Tablet)) {
+            if (event->pressure() <= 0.0) {
+                cancelPendingStroke();
+            } else if (documentPosition && isInsideDocument(*documentPosition)) {
+                cancelPendingStroke();
+                beginStroke(tabletSample(*event, *documentPosition));
+            }
         } else if (m_drawing && documentPosition) {
             continueStroke(tabletSample(*event, *documentPosition));
         }
@@ -296,6 +338,8 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
                 continueStroke(tabletSample(*event, *documentPosition));
             }
             endStroke();
+        } else if (hasPendingStroke(PendingStrokeSource::Tablet)) {
+            cancelPendingStroke();
         }
         break;
     default:
@@ -379,20 +423,24 @@ bool CanvasWidget::beginNavigation(
     if (m_navigationGesture != NavigationGesture::None) return true;
 
     if (mouseButton == Qt::MiddleButton) {
+        cancelPendingStroke();
         beginPan(position, mouseButton, tablet);
         return true;
     }
     if (mouseButton != Qt::LeftButton) return false;
 
     if (navigationPanActive()) {
+        cancelPendingStroke();
         beginPan(position, mouseButton, tablet);
         return true;
     }
     if (m_controlHeld) {
+        cancelPendingStroke();
         beginRotation(position, mouseButton, tablet);
         return true;
     }
     if (m_altHeld) {
+        cancelPendingStroke();
         beginDragZoom(position, mouseButton, tablet);
         return true;
     }
@@ -504,6 +552,7 @@ void CanvasWidget::updateNavigationCursor()
 
 void CanvasWidget::wheelEvent(QWheelEvent* event)
 {
+    cancelPendingStroke();
     const auto anchorDocument = mapToDocument(event->position());
     if (!anchorDocument) {
         QWidget::wheelEvent(event);
@@ -544,6 +593,12 @@ void CanvasWidget::keyPressEvent(QKeyEvent* event)
         return;
     }
     QWidget::keyPressEvent(event);
+}
+
+void CanvasWidget::focusOutEvent(QFocusEvent* event)
+{
+    cancelPendingStroke();
+    QWidget::focusOutEvent(event);
 }
 
 QTransform CanvasWidget::documentTransform() const
@@ -596,6 +651,21 @@ Brush::BrushSample CanvasWidget::applyBrushPressure(const Brush::BrushSample& sa
         sample.pressure,
         m_brush.settings().pressureSensitivity);
     return adjustedSample;
+}
+
+void CanvasWidget::beginPendingStroke(PendingStrokeSource source)
+{
+    m_pendingStroke = source;
+}
+
+void CanvasWidget::cancelPendingStroke()
+{
+    m_pendingStroke = PendingStrokeSource::None;
+}
+
+bool CanvasWidget::hasPendingStroke(PendingStrokeSource source) const noexcept
+{
+    return m_pendingStroke == source;
 }
 
 void CanvasWidget::beginStroke(const Brush::BrushSample& sample)

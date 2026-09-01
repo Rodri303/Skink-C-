@@ -14,6 +14,8 @@
 
 #include <optional>
 
+class QFocusEvent;
+
 namespace Skink::Core::Canvas {
 
 class CanvasWidget final : public QWidget {
@@ -43,6 +45,7 @@ protected:
     void tabletEvent(QTabletEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void focusOutEvent(QFocusEvent* event) override;
 
 private:
     [[nodiscard]] QTransform documentTransform() const;
@@ -68,6 +71,15 @@ private:
     void endNavigationGesture();
     void updateNavigationCursor();
 
+    enum class PendingStrokeSource {
+        None,
+        Mouse,
+        Tablet
+    };
+    void beginPendingStroke(PendingStrokeSource source);
+    void cancelPendingStroke();
+    [[nodiscard]] bool hasPendingStroke(PendingStrokeSource source) const noexcept;
+
     void beginStroke(const Brush::BrushSample& sample);
     void continueStroke(const Brush::BrushSample& sample);
     void endStroke();
@@ -79,6 +91,7 @@ private:
     Brush::BrushState m_brushState;
 
     bool m_drawing{false};
+    PendingStrokeSource m_pendingStroke{PendingStrokeSource::None};
     enum class NavigationGesture {
         None,
         Pan,

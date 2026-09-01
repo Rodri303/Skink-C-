@@ -8,7 +8,7 @@
 namespace Skink::Core::Stroke {
 
 struct StrokeSettings {
-    qreal smoothing{0.25};
+    qreal smoothing{0.35};
     qreal spacingFactor{0.14};
     qreal minimumSpacing{0.55};
 };

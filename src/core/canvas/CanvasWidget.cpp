@@ -1,5 +1,7 @@
 #include "core/canvas/CanvasWidget.hpp"
 
+#include "core/brush/BrushDynamics.hpp"
+
 #include <QDebug>
 #include <QKeyEvent>
 #include <QKeySequence>
@@ -40,6 +42,8 @@ void CanvasWidget::applyBrushState()
     auto settings = m_brush.settings();
     settings.size = m_brushState.size;
     settings.pressureSensitivity = m_brushState.pressureSensitivity / 100.0;
+    settings.preset = m_brushState.preset;
+    settings.eraser = m_activeTool == Tools::Tool::Eraser;
     if (m_activeTool == Tools::Tool::Eraser) {
         settings.color = Qt::white;
         settings.opacity = 1.0;
@@ -48,6 +52,10 @@ void CanvasWidget::applyBrushState()
         settings.opacity = m_brushState.opacity / 100.0;
     }
     m_brush.setSettings(settings);
+
+    auto strokeSettings = m_stroke.settings();
+    strokeSettings.spacingFactor = Brush::strokeSpacingFactor(m_brushState.preset);
+    m_stroke.setSettings(strokeSettings);
 }
 
 void CanvasWidget::setActiveTool(Tools::Tool tool)
@@ -573,14 +581,26 @@ Brush::BrushSample CanvasWidget::tabletSample(
     };
 }
 
+Brush::BrushSample CanvasWidget::applyBrushPressure(const Brush::BrushSample& sample) const
+{
+    if (m_activeTool == Tools::Tool::Eraser) return sample;
+
+    Brush::BrushSample adjustedSample = sample;
+    adjustedSample.pressure = Brush::applyPressureResponse(
+        sample.pressure,
+        m_brush.settings().pressureSensitivity);
+    return adjustedSample;
+}
+
 void CanvasWidget::beginStroke(const Brush::BrushSample& sample)
 {
+    const Brush::BrushSample adjustedSample = applyBrushPressure(sample);
     m_drawing = true;
-    m_stroke.beginStroke(sample);
-    m_brush.beginStroke(sample);
+    m_stroke.beginStroke(adjustedSample);
+    m_brush.beginStroke(adjustedSample);
 
     QPainter painter(&m_document.image());
-    Brush::BrushSample dotSample = sample;
+    Brush::BrushSample dotSample = adjustedSample;
     dotSample.position += QPointF(0.01, 0.01);
     m_brush.continueStroke(painter, dotSample);
     update();
@@ -590,8 +610,9 @@ void CanvasWidget::continueStroke(const Brush::BrushSample& sample)
 {
     if (!m_drawing) return;
 
+    const Brush::BrushSample adjustedSample = applyBrushPressure(sample);
     QPainter painter(&m_document.image());
-    const auto samples = m_stroke.processSample(sample, m_brush.settings().size);
+    const auto samples = m_stroke.processSample(adjustedSample, m_brush.settings().size);
     for (const auto& processedSample : samples) {
         m_brush.continueStroke(painter, processedSample);
     }

@@ -1,4 +1,5 @@
 #include "core/brush/BasicBrushEngine.hpp"
+#include "core/brush/BrushDynamics.hpp"
 
 #include <QPainter>
 #include <QPen>
@@ -29,12 +30,35 @@ void BasicBrushEngine::continueStroke(QPainter& painter, const BrushSample& samp
         return;
     }
 
-    const qreal pressure = std::clamp(sample.pressure, 0.05, 1.0);
+    if (m_settings.eraser) {
+        const qreal pressure = std::clamp(sample.pressure, 0.05, 1.0);
+        QColor color = m_settings.color;
+        color.setAlphaF(1.0);
+
+        QPen pen(color);
+        pen.setWidthF(std::max<qreal>(1.0, m_settings.size * pressure));
+        pen.setCapStyle(Qt::RoundCap);
+        pen.setJoinStyle(Qt::RoundJoin);
+
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.setPen(pen);
+        painter.drawLine(m_previous->position, sample.position);
+
+        m_previous = sample;
+        return;
+    }
+
+    const qreal pressure = std::clamp(sample.pressure, 0.0, 1.0);
+    const BrushDabSettings dab = brushDabSettings(
+        m_settings.preset,
+        m_settings.size,
+        m_settings.opacity,
+        pressure);
     QColor color = m_settings.color;
-    color.setAlphaF(std::clamp(m_settings.opacity, 0.0, 1.0));
+    color.setAlphaF(dab.opacity);
 
     QPen pen(color);
-    pen.setWidthF(std::max<qreal>(1.0, m_settings.size * pressure));
+    pen.setWidthF(dab.diameter);
     pen.setCapStyle(Qt::RoundCap);
     pen.setJoinStyle(Qt::RoundJoin);
 

@@ -84,6 +84,37 @@ This is suitable for validating architecture and behavior, but it is not intende
 9. Port process recording at the document-operation/stroke level rather than recording rendered frames.
 10. Add serialization only after document/layer/history boundaries stabilize.
 
+## Phase 08.3 - Stroke Entry / Pending Stroke (documented only)
+
+Phase 08.3 must add a pending-stroke input state for contacts that begin inside
+the drawing workspace but outside the physical white document. It is explicitly
+not implemented in Phase 08.2.
+
+Required future behavior:
+
+- A tip or mouse press outside the document but inside the drawing viewport
+  enters `PendingStroke`.
+- Crossing into the document starts the stroke without requiring another press.
+- The first rendered point is the first valid document entry; no line may be
+  drawn from the exterior position to that entry.
+- Pressure, X/Y tilt, rotation, tangential pressure and timestamp must be
+  retained while pending.
+- Brush and Eraser must share the same entry behavior, with a coherent mouse
+  equivalent.
+- Releasing before entry, losing application focus, or beginning Pan, Rotate or
+  Zoom cancels `PendingStroke` without an Undo entry.
+- Space/Pan Tool, Ctrl/Rotate, Alt/Zoom and middle-button Pan keep navigation
+  priority.
+- UI panels and controls must never initiate `PendingStroke`; its valid domain
+  is the workspace drawing viewport.
+- Entry detection belongs to input/stroke handling, not the brush engine.
+- Exact geometric intersection with the document edge can be investigated for
+  maximum continuity after the initial behavior is working.
+
+Planned direction:
+
+`Workspace/Input -> PendingStroke state -> StrokeEngine -> BrushEngine`
+
 ## Future module: Skink Artwork Reconstruction / Artwork Scanner
 
 This is a future product and research line. It is not part of Phase 08 and must not interrupt Brush Core work or renumber the current phases.

@@ -15,6 +15,8 @@ struct BrushSettings {
     qreal size{kDefaultBrushSize};
     qreal opacity{1.0};
     qreal pressureSensitivity{kDefaultPressureSensitivity / 100.0};
+    BrushPreset preset{BrushPreset::Marker};
+    bool eraser{false};
 };
 
 struct BrushSample {

@@ -49,6 +49,7 @@ private:
     [[nodiscard]] std::optional<QPointF> mapToDocument(const QPointF& viewportPosition) const;
     [[nodiscard]] bool isInsideDocument(const QPointF& documentPosition) const;
     [[nodiscard]] Brush::BrushSample tabletSample(const QTabletEvent& event, const QPointF& documentPosition) const;
+    [[nodiscard]] Brush::BrushSample applyBrushPressure(const Brush::BrushSample& sample) const;
     void applyZoom(qreal factor, const QPointF& anchor);
     void applyBrushState();
     [[nodiscard]] bool drawingToolActive() const noexcept;

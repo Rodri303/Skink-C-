@@ -84,6 +84,19 @@ This is suitable for validating architecture and behavior, but it is not intende
 9. Port process recording at the document-operation/stroke level rather than recording rendered frames.
 10. Add serialization only after document/layer/history boundaries stabilize.
 
+## Mandatory pre-release task (Phase 15/16)
+
+Wacom diagnostics cleanup is **mandatory before release**:
+
+- Review every temporary log with the `[WACOM-DIAG]` prefix.
+- Remove diagnostics that are no longer necessary.
+- If diagnostics remain useful for support or hardware investigation, disable them by default behind an explicit diagnostic mode or flag.
+- Verify that a normal Skink build does not produce tablet/input event spam in the console.
+- Verify that distribution builds do not create unnecessary Wacom log files.
+- Keep a controlled way to reactivate Wacom diagnostics for future tablet and hardware investigations.
+
+This belongs to final optimization/release work. It must not change the current Phase 07.3 diagnostic behavior prematurely.
+
 ## Important design rule
 
 Qt may own windows, widgets and native tablet event delivery. Qt must not become the permanent owner of brush semantics, document semantics or renderer architecture.

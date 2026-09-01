@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/brush/BrushState.hpp"
+
 #include <QColor>
 #include <QPointF>
 #include <QtGlobal>
@@ -9,9 +11,10 @@ class QPainter;
 namespace Skink::Core::Brush {
 
 struct BrushSettings {
-    QColor color{Qt::black};
-    qreal size{18.0};
+    QColor color{"#151515"};
+    qreal size{kDefaultBrushSize};
     qreal opacity{1.0};
+    qreal pressureSensitivity{kDefaultPressureSensitivity / 100.0};
 };
 
 struct BrushSample {

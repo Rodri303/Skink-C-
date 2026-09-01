@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/brush/BasicBrushEngine.hpp"
+#include "core/brush/BrushState.hpp"
 #include "core/document/DrawingDocument.hpp"
 #include "core/history/HistoryManager.hpp"
 #include "core/stroke/StrokeEngine.hpp"
@@ -21,8 +22,7 @@ class CanvasWidget final : public QWidget {
 public:
     explicit CanvasWidget(QWidget* parent = nullptr);
 
-    void setBrushSize(qreal size);
-    void setBrushColor(const QColor& color);
+    void setBrushState(const Brush::BrushState& state);
     void clearCanvas();
     void undo();
     void redo();
@@ -50,6 +50,7 @@ private:
     [[nodiscard]] bool isInsideDocument(const QPointF& documentPosition) const;
     [[nodiscard]] Brush::BrushSample tabletSample(const QTabletEvent& event, const QPointF& documentPosition) const;
     void applyZoom(qreal factor, const QPointF& anchor);
+    void applyBrushState();
     [[nodiscard]] bool drawingToolActive() const noexcept;
     [[nodiscard]] bool navigationPanActive() const noexcept;
     void logTabletDiagnostic(const QTabletEvent& event);
@@ -74,6 +75,7 @@ private:
     History::HistoryManager m_history{24};
     Stroke::StrokeEngine m_stroke;
     Brush::BasicBrushEngine m_brush;
+    Brush::BrushState m_brushState;
 
     bool m_drawing{false};
     enum class NavigationGesture {
@@ -106,8 +108,6 @@ private:
     qreal m_rotationStartPointerAngle{0.0};
     qreal m_dragZoomLastX{0.0};
     Tools::Tool m_activeTool{Tools::Tool::Brush};
-    QColor m_brushColor{"#151515"};
-    qreal m_brushOpacity{1.0};
 
 signals:
     void zoomChanged(int percent);

@@ -24,30 +24,29 @@ CanvasWidget::CanvasWidget(QWidget* parent)
     setMinimumSize(480, 320);
     setCursor(Qt::CrossCursor);
 
-    auto settings = m_brush.settings();
-    settings.color = QColor("#151515");
-    settings.size = 14.0;
-    m_brush.setSettings(settings);
+    applyBrushState();
 
     m_history.initialize(m_document.image());
 }
 
-void CanvasWidget::setBrushSize(qreal size)
+void CanvasWidget::setBrushState(const Brush::BrushState& state)
 {
-    auto settings = m_brush.settings();
-    settings.size = std::clamp(size, 1.0, 300.0);
-    m_brush.setSettings(settings);
+    m_brushState = state;
+    applyBrushState();
 }
 
-void CanvasWidget::setBrushColor(const QColor& color)
+void CanvasWidget::applyBrushState()
 {
-    if (!color.isValid()) return;
-
-    m_brushColor = color;
-    if (m_activeTool == Tools::Tool::Eraser) return;
-
     auto settings = m_brush.settings();
-    settings.color = color;
+    settings.size = m_brushState.size;
+    settings.pressureSensitivity = m_brushState.pressureSensitivity / 100.0;
+    if (m_activeTool == Tools::Tool::Eraser) {
+        settings.color = Qt::white;
+        settings.opacity = 1.0;
+    } else {
+        settings.color = m_brushState.color;
+        settings.opacity = m_brushState.opacity / 100.0;
+    }
     m_brush.setSettings(settings);
 }
 
@@ -57,16 +56,7 @@ void CanvasWidget::setActiveTool(Tools::Tool tool)
     if (m_drawing) endStroke();
 
     m_activeTool = tool;
-    auto settings = m_brush.settings();
-    if (m_activeTool == Tools::Tool::Eraser) {
-        m_brushOpacity = settings.opacity;
-        settings.color = Qt::white;
-        settings.opacity = 1.0;
-    } else {
-        settings.color = m_brushColor;
-        settings.opacity = m_brushOpacity;
-    }
-    m_brush.setSettings(settings);
+    applyBrushState();
     updateNavigationCursor();
 }
 

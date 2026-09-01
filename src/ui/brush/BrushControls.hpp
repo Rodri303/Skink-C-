@@ -12,10 +12,10 @@ class BrushControls final : public QWidget {
 public:
     explicit BrushControls(QWidget* parent = nullptr);
 
-    [[nodiscard]] int brushSize() const;
-
 public slots:
     void setBrushSize(int value);
+    void setOpacity(int value);
+    void setPressureSensitivity(int value);
 
 signals:
     void brushSizeChanged(int value);
@@ -24,6 +24,8 @@ signals:
 
 private:
     QSlider* m_sizeSlider{nullptr};
+    QSlider* m_opacitySlider{nullptr};
+    QSlider* m_pressureSlider{nullptr};
 };
 
 } // namespace Skink::Ui::Brush

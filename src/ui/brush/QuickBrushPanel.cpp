@@ -8,6 +8,8 @@
 #include <QSizePolicy>
 #include <QVBoxLayout>
 
+#include <array>
+
 namespace Skink::Ui::Brush {
 
 QuickBrushPanel::QuickBrushPanel(QWidget* parent) : QFrame(parent)
@@ -32,25 +34,35 @@ QuickBrushPanel::QuickBrushPanel(QWidget* parent) : QFrame(parent)
     auto* grid = new QGridLayout(gridHost);
     grid->setContentsMargins(12, 12, 12, 12);
     grid->setSpacing(8);
-    const QString names[] = {"Tinta transparente", "Marcador", "Lapiz", "Aerografo"};
-    auto* group = new QButtonGroup(this);
-    group->setExclusive(true);
+    const std::array<QString, 4> names = {
+        "Tinta transparente", "Marcador", "Lapiz", "Aerografo"};
+    const std::array<Core::Brush::BrushPreset, 4> presets = {
+        Core::Brush::BrushPreset::TransparentInk,
+        Core::Brush::BrushPreset::Marker,
+        Core::Brush::BrushPreset::Pencil,
+        Core::Brush::BrushPreset::Airbrush};
+    m_presetGroup = new QButtonGroup(this);
+    m_presetGroup->setExclusive(true);
     for (int index = 0; index < 4; ++index) {
         auto* card = new QPushButton(names[index] + "\n\n----------", gridHost);
         card->setObjectName("quickCard");
         card->setCheckable(true);
         card->setChecked(index == 1);
         card->setMinimumHeight(92);
-        group->addButton(card, index);
+        m_presetGroup->addButton(card, static_cast<int>(presets[index]));
         grid->addWidget(card, index / 2, index % 2);
-    }
-    for (int index = 0; index < 4; ++index) {
-        auto* card = group->button(index);
-        connect(card, &QPushButton::toggled, this, [this, names, index](bool checked) {
-            if (checked) emit presetSelected(names[index]);
+        connect(card, &QPushButton::toggled, this, [this, preset = presets[index]](bool checked) {
+            if (checked) emit presetSelected(preset);
         });
     }
     layout->addWidget(gridHost, 1);
+}
+
+void QuickBrushPanel::setActivePreset(Core::Brush::BrushPreset preset)
+{
+    if (auto* button = m_presetGroup->button(static_cast<int>(preset))) {
+        button->setChecked(true);
+    }
 }
 
 } // namespace Skink::Ui::Brush

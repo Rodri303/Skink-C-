@@ -18,6 +18,9 @@ qt_add_executable(Skink
     src/app/MainWindow.cpp
     src/app/MainWindow.hpp
     src/core/brush/IBrushEngine.hpp
+    src/core/brush/BrushState.hpp
+    src/core/brush/BrushController.cpp
+    src/core/brush/BrushController.hpp
     src/core/brush/BasicBrushEngine.cpp
     src/core/brush/BasicBrushEngine.hpp
     src/core/canvas/CanvasWidget.cpp

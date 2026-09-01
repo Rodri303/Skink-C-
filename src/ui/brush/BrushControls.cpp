@@ -1,5 +1,7 @@
 #include "ui/brush/BrushControls.hpp"
 
+#include "core/brush/BrushState.hpp"
+
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -66,23 +68,54 @@ BrushControls::BrushControls(QWidget* parent)
     QSlider* sizeSlider = nullptr;
     QSlider* opacitySlider = nullptr;
     QSlider* pressureSlider = nullptr;
-    layout->addWidget(createControlBlock(this, QStringLiteral("TAMAÑO"), QStringLiteral("del pincel"), 1, 160, 14, 128, &sizeSlider));
-    layout->addWidget(createControlBlock(this, QStringLiteral("OPACIDAD"), QStringLiteral("del pincel"), 5, 100, 100, 128, &opacitySlider));
-    layout->addWidget(createControlBlock(this, QStringLiteral("PRESIÓN"), QStringLiteral("Sensibilidad del lápiz"), 0, 100, 85, 118, &pressureSlider));
+    layout->addWidget(createControlBlock(
+        this,
+        QStringLiteral("TAMAÑO"),
+        QStringLiteral("del pincel"),
+        Core::Brush::kMinimumBrushSize,
+        Core::Brush::kMaximumBrushSize,
+        Core::Brush::kDefaultBrushSize,
+        128,
+        &sizeSlider));
+    layout->addWidget(createControlBlock(
+        this,
+        QStringLiteral("OPACIDAD"),
+        QStringLiteral("del pincel"),
+        Core::Brush::kMinimumBrushOpacity,
+        Core::Brush::kMaximumBrushOpacity,
+        Core::Brush::kDefaultBrushOpacity,
+        128,
+        &opacitySlider));
+    layout->addWidget(createControlBlock(
+        this,
+        QStringLiteral("PRESIÓN"),
+        QStringLiteral("Sensibilidad del lápiz"),
+        Core::Brush::kMinimumPressureSensitivity,
+        Core::Brush::kMaximumPressureSensitivity,
+        Core::Brush::kDefaultPressureSensitivity,
+        118,
+        &pressureSlider));
     m_sizeSlider = sizeSlider;
+    m_opacitySlider = opacitySlider;
+    m_pressureSlider = pressureSlider;
     connect(m_sizeSlider, &QSlider::valueChanged, this, &BrushControls::brushSizeChanged);
-    connect(opacitySlider, &QSlider::valueChanged, this, &BrushControls::opacityChanged);
-    connect(pressureSlider, &QSlider::valueChanged, this, &BrushControls::pressureSensitivityChanged);
-}
-
-int BrushControls::brushSize() const
-{
-    return m_sizeSlider->value();
+    connect(m_opacitySlider, &QSlider::valueChanged, this, &BrushControls::opacityChanged);
+    connect(m_pressureSlider, &QSlider::valueChanged, this, &BrushControls::pressureSensitivityChanged);
 }
 
 void BrushControls::setBrushSize(int value)
 {
     m_sizeSlider->setValue(value);
+}
+
+void BrushControls::setOpacity(int value)
+{
+    m_opacitySlider->setValue(value);
+}
+
+void BrushControls::setPressureSensitivity(int value)
+{
+    m_pressureSlider->setValue(value);
 }
 
 } // namespace Skink::Ui::Brush

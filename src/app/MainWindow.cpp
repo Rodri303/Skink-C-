@@ -1,5 +1,6 @@
 #include "app/MainWindow.hpp"
 
+#include "core/brush/BrushController.hpp"
 #include "core/canvas/CanvasWidget.hpp"
 #include "core/tools/ToolController.hpp"
 #include "ui/input/ShortcutRouter.hpp"
@@ -19,8 +20,6 @@
 #include <QShowEvent>
 #include <QVBoxLayout>
 #include <QWidget>
-
-#include <algorithm>
 
 namespace Skink::App {
 
@@ -45,9 +44,11 @@ void MainWindow::buildInterface()
     layout->setSpacing(0);
 
     m_toolController = new Core::Tools::ToolController(this);
+    m_brushController = new Core::Brush::BrushController(this);
     m_topBar = new Ui::TopBar::TopBar(root);
     m_colorPicker = new Ui::Color::ColorPicker(this);
-    m_topBar->setActiveColor(m_colorPicker->currentColor());
+    m_colorPicker->setCurrentColor(m_brushController->state().color);
+    m_topBar->setActiveColor(m_brushController->state().color);
     layout->addWidget(m_topBar);
 
     connect(m_topBar, &Ui::TopBar::TopBar::undoRequested, this, [this] { if (m_canvas) m_canvas->undo(); });
@@ -82,11 +83,12 @@ void MainWindow::buildInterface()
         m_colorDock->raise();
         if (m_colorDock->isFloating()) m_colorDock->activateWindow();
     });
-    connect(m_colorPicker, &Ui::Color::ColorPicker::colorSelected, this, [this](const QColor& color) {
-        if (m_canvas) m_canvas->setBrushColor(color);
-        if (m_colorPanel) m_colorPanel->setColor(color);
-        m_topBar->setActiveColor(color);
-    });
+    connect(m_colorPicker, &Ui::Color::ColorPicker::colorSelected,
+            m_brushController, &Core::Brush::BrushController::setColor);
+    connect(m_brushController, &Core::Brush::BrushController::colorChanged,
+            m_colorPicker, &Ui::Color::ColorPicker::setCurrentColor);
+    connect(m_brushController, &Core::Brush::BrushController::colorChanged,
+            m_topBar, &Ui::TopBar::TopBar::setActiveColor);
     connect(m_toolController, &Core::Tools::ToolController::activeToolChanged,
             m_topBar, &Ui::TopBar::TopBar::setActiveTool);
     m_topBar->setActiveTool(m_toolController->activeTool());
@@ -100,7 +102,10 @@ void MainWindow::buildInterface()
     m_canvas->show();
     connect(m_toolController, &Core::Tools::ToolController::activeToolChanged,
             m_canvas, &Core::Canvas::CanvasWidget::setActiveTool);
+    connect(m_brushController, &Core::Brush::BrushController::stateChanged,
+            m_canvas, &Core::Canvas::CanvasWidget::setBrushState);
     m_canvas->setActiveTool(m_toolController->activeTool());
+    m_canvas->setBrushState(m_brushController->state());
 
     buildWorkspaceOverlays(m_workspace);
 
@@ -118,7 +123,7 @@ void MainWindow::buildInterface()
     setCentralWidget(root);
 
     m_colorPanel = new Ui::Color::ColorPanel(this);
-    m_colorPanel->setColor(m_colorPicker->currentColor());
+    m_colorPanel->setColor(m_brushController->state().color);
     m_colorDock = new Ui::Docking::SkinkDockPanel("COLOR", m_colorPanel, this);
     m_colorDock->setObjectName("ColorDock");
     addDockWidget(Qt::RightDockWidgetArea, m_colorDock);
@@ -126,7 +131,9 @@ void MainWindow::buildInterface()
     m_colorDock->resize(300, 450);
     m_colorDock->hide();
     connect(m_colorPanel, &Ui::Color::ColorPanel::colorChanged,
-            m_colorPicker, &Ui::Color::ColorPicker::selectColor);
+            m_brushController, &Core::Brush::BrushController::setColor);
+    connect(m_brushController, &Core::Brush::BrushController::colorChanged,
+            m_colorPanel, &Ui::Color::ColorPanel::setColor);
 
     m_shortcutRouter = new Ui::Input::ShortcutRouter(this);
     connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::brushRequested, this, [this] {
@@ -148,10 +155,7 @@ void MainWindow::buildInterface()
     connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::redoRequested,
             m_canvas, &Core::Canvas::CanvasWidget::redo);
     connect(m_shortcutRouter, &Ui::Input::ShortcutRouter::brushSizeStepRequested,
-            this, [this](int delta) {
-                const int nextSize = std::clamp(m_leftControls->brushSize() + delta, 1, 160);
-                m_leftControls->setBrushSize(nextSize);
-            });
+            m_brushController, &Core::Brush::BrushController::adjustSize);
 }
 
 void MainWindow::showDockPanel(Ui::Docking::SkinkDockPanel* dock)
@@ -183,18 +187,37 @@ void MainWindow::buildWorkspaceOverlays(QWidget* parent)
     m_toolStrip->setActiveTool(m_toolController->activeTool());
 
     m_leftControls = new Ui::Brush::BrushControls(parent);
-    connect(m_leftControls, &Ui::Brush::BrushControls::brushSizeChanged, this, [this](int value) {
-        if (m_canvas) m_canvas->setBrushSize(value);
-        if (m_workspace) m_workspace->showBrushSizeHud(value);
-    });
+    const auto& brushState = m_brushController->state();
+    m_leftControls->setBrushSize(brushState.size);
+    m_leftControls->setOpacity(brushState.opacity);
+    m_leftControls->setPressureSensitivity(brushState.pressureSensitivity);
+    connect(m_leftControls, &Ui::Brush::BrushControls::brushSizeChanged,
+            m_brushController, &Core::Brush::BrushController::setSize);
+    connect(m_leftControls, &Ui::Brush::BrushControls::opacityChanged,
+            m_brushController, &Core::Brush::BrushController::setOpacity);
+    connect(m_leftControls, &Ui::Brush::BrushControls::pressureSensitivityChanged,
+            m_brushController, &Core::Brush::BrushController::setPressureSensitivity);
+    connect(m_brushController, &Core::Brush::BrushController::sizeChanged,
+            m_leftControls, &Ui::Brush::BrushControls::setBrushSize);
+    connect(m_brushController, &Core::Brush::BrushController::opacityChanged,
+            m_leftControls, &Ui::Brush::BrushControls::setOpacity);
+    connect(m_brushController, &Core::Brush::BrushController::pressureSensitivityChanged,
+            m_leftControls, &Ui::Brush::BrushControls::setPressureSensitivity);
+    connect(m_brushController, &Core::Brush::BrushController::sizeChanged,
+            m_workspace, &Ui::Workspace::WorkspaceWidget::showBrushSizeHud);
 
     auto* layersPanel = new Ui::Layers::LayersPanel(this);
-    auto* quickBrushPanel = new Ui::Brush::QuickBrushPanel(this);
-    connect(quickBrushPanel, &Ui::Brush::QuickBrushPanel::presetSelected, this, [this](const QString&) {
+    m_quickBrushPanel = new Ui::Brush::QuickBrushPanel(this);
+    m_quickBrushPanel->setActivePreset(brushState.preset);
+    connect(m_quickBrushPanel, &Ui::Brush::QuickBrushPanel::presetSelected,
+            m_brushController, &Core::Brush::BrushController::setPreset);
+    connect(m_quickBrushPanel, &Ui::Brush::QuickBrushPanel::presetSelected, this, [this] {
         m_toolController->setActiveTool(Core::Tools::Tool::Brush);
     });
+    connect(m_brushController, &Core::Brush::BrushController::presetChanged,
+            m_quickBrushPanel, &Ui::Brush::QuickBrushPanel::setActivePreset);
     m_layersDock = new Ui::Docking::SkinkDockPanel("CAPAS", layersPanel, this);
-    m_quickBrushDock = new Ui::Docking::SkinkDockPanel("PINCEL RAPIDO", quickBrushPanel, this);
+    m_quickBrushDock = new Ui::Docking::SkinkDockPanel("PINCEL RAPIDO", m_quickBrushPanel, this);
     m_layersDock->setObjectName("LayersDock");
     m_quickBrushDock->setObjectName("QuickBrushDock");
     addDockWidget(Qt::RightDockWidgetArea, m_layersDock);

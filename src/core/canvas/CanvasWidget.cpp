@@ -54,7 +54,13 @@ void CanvasWidget::applyBrushState()
     m_brush.setSettings(settings);
 
     auto strokeSettings = m_stroke.settings();
-    strokeSettings.spacingFactor = Brush::strokeSpacingFactor(m_brushState.preset);
+    if (m_activeTool == Tools::Tool::Eraser) {
+        strokeSettings.smoothing = 0.25;
+        strokeSettings.spacingFactor = 0.14;
+    } else {
+        strokeSettings.smoothing = 0.35;
+        strokeSettings.spacingFactor = Brush::strokeSpacingFactor(m_brushState.preset);
+    }
     m_stroke.setSettings(strokeSettings);
 }
 

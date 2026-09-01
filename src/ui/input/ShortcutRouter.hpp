@@ -26,6 +26,7 @@ signals:
 
 private:
     [[nodiscard]] bool focusAcceptsTextInput() const;
+    void logDiagnosticState(const char* reason) const;
     void setTemporaryPan(bool active);
     void setNavigationModifiers(bool control, bool alt, bool shift);
 

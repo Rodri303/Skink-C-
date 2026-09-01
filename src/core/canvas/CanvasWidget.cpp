@@ -1,9 +1,11 @@
 #include "core/canvas/CanvasWidget.hpp"
 
+#include <QDebug>
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPointingDevice>
 #include <QTabletEvent>
 #include <QWheelEvent>
 
@@ -256,6 +258,7 @@ void CanvasWidget::mouseReleaseEvent(QMouseEvent* event)
 void CanvasWidget::tabletEvent(QTabletEvent* event)
 {
     setFocus(Qt::OtherFocusReason);
+    logTabletDiagnostic(*event);
     const auto documentPosition = mapToDocument(event->position());
 
     switch (event->type()) {
@@ -296,6 +299,62 @@ void CanvasWidget::tabletEvent(QTabletEvent* event)
     }
 
     event->accept();
+}
+
+void CanvasWidget::logTabletDiagnostic(const QTabletEvent& event)
+{
+    constexpr qint64 moveSampleIntervalMs = 750;
+
+    const bool contact = event.pressure() > 0.0;
+    const int pointerType = static_cast<int>(event.pointerType());
+    const bool stateChanged = !m_tabletDiagnosticInitialized
+        || event.buttons() != m_lastTabletButtons
+        || event.modifiers() != m_lastTabletModifiers
+        || contact != m_lastTabletContact
+        || pointerType != m_lastTabletPointerType;
+    const bool transition = event.type() == QEvent::TabletPress
+        || event.type() == QEvent::TabletRelease;
+    const bool activeMoveSample = event.type() == QEvent::TabletMove
+        && (contact || event.buttons() != Qt::NoButton)
+        && m_tabletDiagnosticTimer.isValid()
+        && m_tabletDiagnosticTimer.elapsed() >= moveSampleIntervalMs;
+
+    if (stateChanged || transition || activeMoveSample) {
+        const char* eventName = "TabletOther";
+        if (event.type() == QEvent::TabletPress) eventName = "TabletPress";
+        if (event.type() == QEvent::TabletMove) eventName = "TabletMove";
+        if (event.type() == QEvent::TabletRelease) eventName = "TabletRelease";
+
+        const QPointingDevice* device = event.pointingDevice();
+        qInfo().noquote().nospace()
+            << "[WACOM-DIAG][TABLET] event=" << eventName
+            << " timestamp=" << event.timestamp()
+            << " button=" << static_cast<int>(event.button())
+            << " buttons=0x" << QString::number(event.buttons().toInt(), 16)
+            << " modifiers=0x" << QString::number(event.modifiers().toInt(), 16)
+            << " pressure=" << QString::number(event.pressure(), 'f', 4)
+            << " contact=" << (contact ? "tip" : "hover")
+            << " pointerType=" << pointerType
+            << " deviceType="
+            << (device ? static_cast<int>(device->type()) : -1)
+            << " deviceName=\""
+            << (device ? device->name() : QStringLiteral("unknown"))
+            << "\" deviceId=" << (device ? device->systemId() : -1)
+            << " position=(" << QString::number(event.position().x(), 'f', 1)
+            << ',' << QString::number(event.position().y(), 'f', 1) << ')'
+            << " router={ctrl=" << m_controlHeld
+            << ",alt=" << m_altHeld
+            << ",shift=" << m_shiftHeld
+            << ",space=" << m_temporaryPan << '}';
+        m_tabletDiagnosticTimer.restart();
+    }
+
+    if (!m_tabletDiagnosticTimer.isValid()) m_tabletDiagnosticTimer.start();
+    m_tabletDiagnosticInitialized = true;
+    m_lastTabletButtons = event.buttons();
+    m_lastTabletModifiers = event.modifiers();
+    m_lastTabletContact = contact;
+    m_lastTabletPointerType = pointerType;
 }
 
 bool CanvasWidget::drawingToolActive() const noexcept

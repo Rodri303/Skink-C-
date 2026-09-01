@@ -3,6 +3,7 @@
 #include <QAbstractSpinBox>
 #include <QApplication>
 #include <QComboBox>
+#include <QDebug>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
@@ -18,6 +19,7 @@ ShortcutRouter::ShortcutRouter(QObject* parent)
     : QObject(parent)
 {
     qApp->installEventFilter(this);
+    logDiagnosticState("initialized");
 }
 
 bool ShortcutRouter::eventFilter(QObject* watched, QEvent* event)
@@ -25,6 +27,8 @@ bool ShortcutRouter::eventFilter(QObject* watched, QEvent* event)
     Q_UNUSED(watched);
 
     if (event->type() == QEvent::ApplicationDeactivate) {
+        qInfo().noquote()
+            << "[WACOM-DIAG][KEYS] event=ApplicationDeactivate";
         setTemporaryPan(false);
         setNavigationModifiers(false, false, false);
         emit navigationCancelled();
@@ -38,6 +42,24 @@ bool ShortcutRouter::eventFilter(QObject* watched, QEvent* event)
     auto* keyEvent = static_cast<QKeyEvent*>(event);
     const bool pressed = event->type() == QEvent::KeyPress;
     const bool editableFocus = focusAcceptsTextInput();
+    const bool diagnosticKey = keyEvent->key() == Qt::Key_Control
+        || keyEvent->key() == Qt::Key_Alt
+        || keyEvent->key() == Qt::Key_Shift
+        || keyEvent->key() == Qt::Key_Space;
+    if (diagnosticKey && !keyEvent->isAutoRepeat()) {
+        qInfo().noquote().nospace()
+            << "[WACOM-DIAG][KEY-EVENT] action=" << (pressed ? "press" : "release")
+            << " timestamp=" << keyEvent->timestamp()
+            << " key=" << keyEvent->key()
+            << " modifiers=0x" << QString::number(keyEvent->modifiers().toInt(), 16)
+            << " nativeVirtualKey=0x"
+            << QString::number(keyEvent->nativeVirtualKey(), 16)
+            << " nativeScanCode=0x"
+            << QString::number(keyEvent->nativeScanCode(), 16)
+            << " nativeModifiers=0x"
+            << QString::number(keyEvent->nativeModifiers(), 16)
+            << " editableFocus=" << editableFocus;
+    }
 
     if (!keyEvent->isAutoRepeat()
         && (keyEvent->key() == Qt::Key_Control
@@ -109,6 +131,7 @@ void ShortcutRouter::setTemporaryPan(bool active)
     if (m_temporaryPanActive == active) return;
 
     m_temporaryPanActive = active;
+    logDiagnosticState("space-change");
     emit temporaryPanChanged(m_temporaryPanActive);
 }
 
@@ -119,7 +142,18 @@ void ShortcutRouter::setNavigationModifiers(bool control, bool alt, bool shift)
     m_controlHeld = control;
     m_altHeld = alt;
     m_shiftHeld = shift;
+    logDiagnosticState("modifier-change");
     emit navigationModifiersChanged(m_controlHeld, m_altHeld, m_shiftHeld);
+}
+
+void ShortcutRouter::logDiagnosticState(const char* reason) const
+{
+    qInfo().noquote().nospace()
+        << "[WACOM-DIAG][KEYS] reason=" << reason
+        << " ctrl=" << m_controlHeld
+        << " alt=" << m_altHeld
+        << " shift=" << m_shiftHeld
+        << " space=" << m_temporaryPanActive;
 }
 
 } // namespace Skink::Ui::Input

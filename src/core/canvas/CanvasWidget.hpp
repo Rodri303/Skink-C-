@@ -6,6 +6,7 @@
 #include "core/stroke/StrokeEngine.hpp"
 #include "core/tools/ToolController.hpp"
 
+#include <QElapsedTimer>
 #include <QPointF>
 #include <QTransform>
 #include <QWidget>
@@ -51,6 +52,7 @@ private:
     void applyZoom(qreal factor, const QPointF& anchor);
     [[nodiscard]] bool drawingToolActive() const noexcept;
     [[nodiscard]] bool navigationPanActive() const noexcept;
+    void logTabletDiagnostic(const QTabletEvent& event);
     [[nodiscard]] bool beginNavigation(
         const QPointF& position,
         Qt::MouseButton mouseButton,
@@ -88,6 +90,12 @@ private:
     bool m_controlHeld{false};
     bool m_altHeld{false};
     bool m_shiftHeld{false};
+    bool m_tabletDiagnosticInitialized{false};
+    bool m_lastTabletContact{false};
+    int m_lastTabletPointerType{-1};
+    Qt::MouseButtons m_lastTabletButtons{Qt::NoButton};
+    Qt::KeyboardModifiers m_lastTabletModifiers{Qt::NoModifier};
+    QElapsedTimer m_tabletDiagnosticTimer;
     Qt::MouseButton m_navigationMouseButton{Qt::NoButton};
     QPointF m_pan;
     QPointF m_lastPanPosition;
